@@ -9,6 +9,7 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import "AFNetworking/AFNetworking.h"
+#import "QiniuSDK.h"
 
 #define WinSize [UIScreen mainScreen].bounds.size
 #define BaseColor [UIColor colorWithRed:243.0f/255.0f green:110.0f/255.0f blue:31.0f/255.0f alpha:1.0f]
@@ -47,6 +48,15 @@
               success:(void (^)(NSURLSessionDataTask * _Nonnull task, id _Nullable responseObject))pp_success
               failure:(void (^)(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error))pp_failure;
 
+/**
+ * 发送POST请求
+ */
+- (void)networkPOSTWithUrl:(NSString *)urlString
+                controller:(NSString *)controller
+                    action:(NSString *)action
+                parameters:(NSDictionary *)parameters
+                   success:(void (^)(NSURLSessionDataTask * _Nonnull task, id _Nullable responseObject))pp_success
+                   failure:(void (^)(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error))pp_failure;
 @end
 
 #pragma mark - ProfileViewController interface
@@ -97,6 +107,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property (strong, nonatomic)UITextField * fileNameField;
 @property (strong, nonatomic)UIPickerView * fileTypePicker;
 @property (strong, nonatomic)UIButton * uploadButton;
+@property (strong, nonatomic)UIButton * uploadQiniuButton;
 
 //数据部分
 @property (strong, nonatomic)NSString * fileName;//文件名称 如：123.mp3
@@ -219,6 +230,15 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
                                                        titleColor:BaseColor];
     [self.uploadButton addTarget:self action:@selector(uploadPress:) forControlEvents:UIControlEventTouchUpInside];
     [self.backView addSubview:self.uploadButton];
+    
+    self.uploadQiniuButton = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
+                                                           center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.uploadButton.frame)+50)
+                                                  backGroundColor:[UIColor whiteColor]
+                                                            title:@"Qiniu上传文件"
+                                                             font:[UIFont fontWithName:@"Arial" size:20.0f]
+                                                       titleColor:BaseColor];
+    [self.uploadQiniuButton addTarget:self action:@selector(qiniuUploadPress:) forControlEvents:UIControlEventTouchUpInside];
+    [self.backView addSubview:self.uploadQiniuButton];
 }
 
 - (void)keyBoardHidden:(id)sender{
@@ -349,6 +369,52 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         }];
     }
 }
+#pragma mark - Qiniu上传事件
+- (void)qiniuUploadPress:(id)sender{
+    PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
+    [netWork networkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        NSDictionary * result = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableContainers error:nil];
+        NSLog(@"%@",result);
+        NSDictionary * resultData = [result objectForKey:@"data"];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
+        });
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        NSLog(@"%@",error);
+    }];
+}
+
+
+- (void)uploadFileToQinniuWithUpToken:(NSString *)qiniu_token{
+    //华南
+    QNConfiguration *config = [QNConfiguration build:^(QNConfigurationBuilder *builder) {
+        builder.zone = [QNFixedZone zone2];
+    }];
+    //重用uploadManager。一般地，只需要创建一个uploadManager对象
+    NSString * token = qiniu_token;//从服务端SDK获取
+    NSString * key = self.fileName;
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    
+    QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
+    
+    QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:self.mimeType progressHandler:^(NSString *key, float percent) {
+        NSLog(@"percent ----- %f",percent);
+    } params:@{@"fname":self.fileName, @"x:filename":[NSString stringWithFormat:@"%@",self.fileName] } checkCrc:YES cancellationSignal:nil];
+    
+    [upManager putFile:filePath key:key token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
+        if(info.ok)
+        {
+            NSLog(@"请求成功");
+        }
+        else{
+            NSLog(@"失败");
+            //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
+        }
+        NSLog(@"info ===== %@", info);
+        NSLog(@"resp ===== %@", resp);
+    } option:opt];
+}
 
 /***************  图片处理,此方法解决了, (手机竖屏拍照,图片会横倒的问题)  *****************/
 
@@ -435,6 +501,10 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.navigationController pushViewController:tmpListVC animated:YES];
     [tmpListVC fileNameSelect:^(NSString *fileString) {
         NSLog(@"%@",fileString);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.fileNameField setText:fileString];
+            self.fileName = [NSString stringWithFormat:@"%@",self.fileNameField.text];
+        });
     }];
 }
 
@@ -488,6 +558,32 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         
     }
     return self;
+}
+
+- (void)networkPOSTWithUrl:(NSString *)urlString
+        controller:(NSString *)controller
+            action:(NSString *)action
+        parameters:(NSDictionary *)parameters
+           success:(void (^)(NSURLSessionDataTask * _Nonnull task, id _Nullable responseObject))pp_success
+           failure:(void (^)(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error))pp_failure{
+    NSString * url = [NSString stringWithFormat:@"%@/%@/%@?",urlString,controller,action];
+    AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+    //申明请求的数据类型设置
+    manager.requestSerializer=[AFHTTPRequestSerializer serializer];
+    //返回数据类型设置
+    manager.responseSerializer = [AFHTTPResponseSerializer serializer];
+    manager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects:@"text/html",@"text/plain",@"application/json", @"text/json", @"text/javascript" ,nil];
+    [manager.requestSerializer setValue:@"text/plain;charset=utf-8" forHTTPHeaderField:@"Content-Type"];
+    [manager POST:url parameters:parameters progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        if (pp_success) {
+            pp_success(task,responseObject);
+        }
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        if (pp_failure) {
+            pp_failure(task,error);
+        }
+    }];
+
 }
 
 - (void)uploadFileUrl:(NSString *)urlString
@@ -650,6 +746,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 }
 
 - (void)refreshFileList{
+    [self.fileListArray removeAllObjects];
     [self getFileList];
 }
 
@@ -707,6 +804,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     
     if (self.tmpFileHandler) {
         self.tmpFileHandler([NSString stringWithFormat:@"%@",[self.fileListArray objectAtIndex:indexPath.row]]);
+        [self backButtonPress];
     }
 }
 
