@@ -14,7 +14,10 @@
 #define BaseColor [UIColor colorWithRed:243.0f/255.0f green:110.0f/255.0f blue:31.0f/255.0f alpha:1.0f]
 #define UrlString @"http://localhost/api"
 
+#define StatusBar_Height [[UIApplication sharedApplication] statusBarFrame].size.height
+#define NavBar_Height self.navigationController.navigationBar.frame.size.height
 
+#define TopBar_Height (StatusBar_Height + NavBar_Height)
 
 #pragma mark - PPFileNetWorking interface
 @interface PPFileNetWorking : NSObject
@@ -59,8 +62,11 @@
 @end
 
 #pragma mark - TmpListViewController interface
+typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @interface TmpListViewController : UIViewController
+@property (nonatomic, copy) TmpListFilePressHandler tmpFileHandler;
 
+- (void)fileNameSelect:(TmpListFilePressHandler)fileNameHandler;
 @end
 
 #pragma mark - PAppDelegate
@@ -151,7 +157,7 @@
                                                            titleColor:[UIColor whiteColor]
                              ];
     
-    [getTmpList addTarget:self action:@selector(getTmpAllFileAndFolder) forControlEvents:UIControlEventTouchUpInside];
+    [getTmpList addTarget:self action:@selector(tmpListVCShow) forControlEvents:UIControlEventTouchUpInside];
     UIBarButtonItem * leftBackBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:getTmpList];
     self.navigationItem.leftBarButtonItem = leftBackBarButtonItem;
 }
@@ -424,6 +430,14 @@
     [self presentViewController:alertVC animated:YES completion:nil];
 }
 
+- (void)tmpListVCShow{
+    TmpListViewController * tmpListVC = [[TmpListViewController alloc] init];
+    [self.navigationController pushViewController:tmpListVC animated:YES];
+    [tmpListVC fileNameSelect:^(NSString *fileString) {
+        NSLog(@"%@",fileString);
+    }];
+}
+
 - (void)getTmpAllFileAndFolder{
     NSFileManager *fileManager = [NSFileManager defaultManager];
     //在这里获取应用程序Documents文件夹里的文件及文件夹列表
@@ -530,12 +544,67 @@
 }
 @end
 
+
+#pragma mark - TmpListViewCell
+
+@interface TmpListViewCell : UITableViewCell
+
+@property (strong, nonatomic) UIView * bgView;
+@property (strong, nonatomic) UILabel * fileNameLbl;
+
+- (void)setFileName:(NSString *)fileName;
+@end
+
+@implementation TmpListViewCell
+@synthesize bgView;
+@synthesize fileNameLbl;
+
+- (instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier
+{
+    self = [super initWithStyle:style reuseIdentifier:reuseIdentifier];
+    if (self) {
+        [self setSelectionStyle:UITableViewCellSelectionStyleGray];
+        self.backgroundColor = [UIColor clearColor];
+        CGRect frame = self.frame;
+        frame.size.width = WinSize.width;
+        frame.size.height = 45;
+        self.frame = frame;
+        
+        
+        bgView = [[UIView alloc] initWithFrame:self.bounds];
+        [bgView setBackgroundColor:[UIColor clearColor]];
+        [self addSubview:bgView];
+        
+        fileNameLbl = [[UILabel alloc] initWithFrame:CGRectMake(10, 0, WinSize.width - 20, frame.size.height)];
+        [fileNameLbl setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+        [fileNameLbl setTextColor:BaseColor];
+        [fileNameLbl setTextAlignment:NSTextAlignmentLeft];
+        [fileNameLbl setNumberOfLines:0];
+        [self.bgView addSubview:fileNameLbl];
+
+        UIView * lineView = [[UIView alloc] initWithFrame:CGRectMake(0, frame.size.height, WinSize.width, 1)];
+        [lineView setBackgroundColor:BaseColor];
+        [self.bgView addSubview:lineView];
+    }
+    return self;
+}
+
+- (void)setFileName:(NSString *)fileName{
+    [fileNameLbl setText:fileName];
+}
+
+@end
+
+
 #pragma mark - TmpListViewController
-@interface TmpListViewController()
-@property (strong, nonatomic)UITableView * tmpListViewController;
+
+@interface TmpListViewController()<UITableViewDelegate,UITableViewDataSource>
+@property (strong, nonatomic)UITableView * fileTableView;
+@property (strong, nonatomic)NSMutableArray * fileListArray;
 @end
 
 @implementation TmpListViewController
+@synthesize fileTableView;
 
 - (instancetype)init
 {
@@ -545,10 +614,134 @@
     return self;
 }
 
+- (void)initNavigation
+{
+    UIButton * refreshBtn = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, 70, 40)
+                                                                center:CGPointMake(40, 70)
+                                                       backGroundColor:BaseColor
+                                                                 title:@"刷新"
+                                                                  font:[UIFont fontWithName:@"Arial" size:15.0f]
+                                                            titleColor:[UIColor whiteColor]
+                              ];
+    
+    [refreshBtn addTarget:self action:@selector(refreshFileList) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem * rightBackBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:refreshBtn];
+    self.navigationItem.rightBarButtonItem = rightBackBarButtonItem;
+    
+    UIButton * backBtn = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, 70, 40)
+                                                               center:CGPointMake(40, 70)
+                                                      backGroundColor:BaseColor
+                                                                title:@"返回"
+                                                                 font:[UIFont fontWithName:@"Arial" size:15.0f]
+                                                           titleColor:[UIColor whiteColor]
+                             ];
+    
+    [backBtn addTarget:self action:@selector(backButtonPress) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem * leftBackBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:backBtn];
+    self.navigationItem.leftBarButtonItem = leftBackBarButtonItem;
+}
+
 - (void)viewDidLoad{
     [super viewDidLoad];
+    [self initNavigation];
+    self.fileListArray = [[NSMutableArray alloc] init];
     
+    [self createView];
 }
+
+- (void)refreshFileList{
+    [self getFileList];
+}
+
+- (void)backButtonPress{
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+- (void)createView{
+    self.fileTableView = [[UITableView alloc] initWithFrame:CGRectMake(0, TopBar_Height, WinSize.width, WinSize.height - TopBar_Height) style:UITableViewStylePlain];
+    [self.fileTableView setBackgroundView:nil];
+    [self.fileTableView setBackgroundColor:[UIColor clearColor]];
+    [self.fileTableView setDelegate:self];
+    [self.fileTableView setDataSource:self];
+    [self.fileTableView setSeparatorColor:[UIColor clearColor]];
+    [self.fileTableView setSeparatorStyle:UITableViewCellSeparatorStyleNone];
+    [self.fileTableView setShowsHorizontalScrollIndicator:NO];
+    [self.fileTableView setShowsVerticalScrollIndicator:NO];
+    [self.view addSubview:self.fileTableView];
+    [self.fileTableView reloadData];
+    
+    [self getFileList];
+
+}
+
+#pragma mark - tableViewDelegate
+
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView{
+    return 1;
+}
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section{
+    return [self.fileListArray count];
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(nonnull NSIndexPath *)indexPath{
+    TmpListViewCell * tmpListCell = (TmpListViewCell *)[self tableView:self.fileTableView cellForRowAtIndexPath:indexPath];
+    return tmpListCell.frame.size.height;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath{
+    static NSString * cellIdentifier = @"EditDatumCell";
+    TmpListViewCell * tmpListCell = (TmpListViewCell *)[tableView dequeueReusableCellWithIdentifier:cellIdentifier];
+    if (tmpListCell == nil) {
+        tmpListCell = [[TmpListViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:cellIdentifier];
+    }
+    
+    [tmpListCell setFileName:[NSString stringWithFormat:@"%@",[self.fileListArray objectAtIndex:indexPath.row]]];
+    
+    return tmpListCell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    [tableView deselectRowAtIndexPath:indexPath animated:NO];
+    
+    if (self.tmpFileHandler) {
+        self.tmpFileHandler([NSString stringWithFormat:@"%@",[self.fileListArray objectAtIndex:indexPath.row]]);
+    }
+}
+
+- (void)fileNameSelect:(TmpListFilePressHandler)fileNameHandler
+{
+    self.tmpFileHandler = fileNameHandler;
+}
+
+- (void)getFileList{
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString * pathDir = tmpDir;
+    NSError *error = nil;
+    NSArray *fileList = [[NSArray alloc] init];
+    fileList = [fileManager contentsOfDirectoryAtPath:pathDir error:&error];
+    NSMutableArray *fileArray = [[NSMutableArray alloc] init];
+    NSMutableArray *folderArray = [[NSMutableArray alloc] init];
+    BOOL isDir = NO;
+    //在上面那段程序中获得的fileList中列出文件夹名
+    for (NSString *file in fileList) {
+        NSString *path = [pathDir stringByAppendingPathComponent:file];
+        [fileManager fileExistsAtPath:path isDirectory:(&isDir)];
+        if (isDir) {
+            [folderArray addObject:file];
+        }else
+        {
+            [fileArray addObject:file];
+        }
+        isDir = NO;
+    }
+    [self.fileListArray addObjectsFromArray:fileArray];
+    [self.fileTableView reloadData];
+    NSLog(@"All folders:%@ \nAll files:%@",folderArray,fileArray);
+}
+
 
 @end
 
