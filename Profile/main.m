@@ -13,7 +13,9 @@
 
 #define WinSize [UIScreen mainScreen].bounds.size
 #define BaseColor [UIColor colorWithRed:243.0f/255.0f green:110.0f/255.0f blue:31.0f/255.0f alpha:1.0f]
-#define UrlString @"http://localhost/api"
+//#define UrlString @"http://localhost/api"
+
+#define UrlString @"http://media.powersenz.com/greattalk/public/api"
 
 #define StatusBar_Height [[UIApplication sharedApplication] statusBarFrame].size.height
 #define NavBar_Height self.navigationController.navigationBar.frame.size.height
@@ -106,6 +108,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property (strong, nonatomic)UIControl * backView;
 @property (strong, nonatomic)UITextField * fileNameField;
 @property (strong, nonatomic)UIPickerView * fileTypePicker;
+@property (strong, nonatomic)UILabel * filemimetypeLbl;
 @property (strong, nonatomic)UIButton * uploadButton;
 @property (strong, nonatomic)UIButton * uploadQiniuButton;
 
@@ -176,7 +179,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 - (void)viewDidLoad{
     [super viewDidLoad];
     
-    self.pickerArray = [[NSArray alloc] initWithObjects:@"图片",@"音频",@"视频", nil];
+    self.pickerArray = [[NSArray alloc] initWithObjects:@"图片",@"音频",@"视频",@"其他文件", nil];
     
     [self initNavigation];
     [self createView];
@@ -210,8 +213,20 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [lineView setBackgroundColor:BaseColor];
     [self.backView addSubview:lineView];
     
+    self.filemimetypeLbl = [[UILabel alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(lineView.frame)+20, WinSize.width-20, 70)];
+    [self.filemimetypeLbl setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.filemimetypeLbl setTextColor:BaseColor];
+    [self.filemimetypeLbl setTextAlignment:NSTextAlignmentCenter];
+    [self.filemimetypeLbl setBackgroundColor:[UIColor clearColor]];
+    [self.filemimetypeLbl setText:@"显示所选文件的MIMEType"];
+    [self.backView addSubview:self.filemimetypeLbl];
+    [self.filemimetypeLbl.layer setMasksToBounds:YES];
+    [self.filemimetypeLbl.layer setBorderWidth:1.0f];
+    [self.filemimetypeLbl.layer setBorderColor:BaseColor.CGColor];
+    [self.filemimetypeLbl.layer setCornerRadius:10.0f];
+    
     //创建文件类型选择器
-    self.fileTypePicker = [[UIPickerView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(lineView.frame)+20, WinSize.width-20, 162)];
+    self.fileTypePicker = [[UIPickerView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.filemimetypeLbl.frame)+20, WinSize.width-20, 162)];
     [self.fileTypePicker setDelegate:self];
     [self.fileTypePicker setDataSource:self];
     [self.fileTypePicker setBackgroundColor:[UIColor whiteColor]];
@@ -221,11 +236,11 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.fileTypePicker.layer setBorderWidth:1.0f];
     [self.fileTypePicker.layer setBorderColor:BaseColor.CGColor];
     [self.fileTypePicker.layer setCornerRadius:10.0f];
-
+    
     self.uploadButton = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
                                                            center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.fileTypePicker.frame)+50)
                                                   backGroundColor:[UIColor whiteColor]
-                                                            title:@"上传文件"
+                                                            title:@"服务器上传文件"
                                                              font:[UIFont fontWithName:@"Arial" size:20.0f]
                                                        titleColor:BaseColor];
     [self.uploadButton addTarget:self action:@selector(uploadPress:) forControlEvents:UIControlEventTouchUpInside];
@@ -303,17 +318,23 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 //被选择的行
 -(void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component{
-    if ([[self.pickerArray objectAtIndex:row] isEqualToString:@"图片"]) {
-        self.name = @"image";
-        self.mimeType = @"image/jpeg";
-    }
-    else if([[self.pickerArray objectAtIndex:row] isEqualToString:@"音频"]){
-        self.name = @"audio";
-        self.mimeType = @"audio/mp3";
-    }
-    else if([[self.pickerArray objectAtIndex:row] isEqualToString:@"视频"]){
-        self.name = @"video";
-        self.mimeType = @"application/octet-stream";
+    if ([self.filemimetypeLbl.text isEqualToString:@""] || self.filemimetypeLbl.text == nil) {
+        if ([[self.pickerArray objectAtIndex:row] isEqualToString:@"图片"]) {
+            self.name = @"image";
+            self.mimeType = @"image/jpeg";
+        }
+        else if([[self.pickerArray objectAtIndex:row] isEqualToString:@"音频"]){
+            self.name = @"audio";
+            self.mimeType = @"audio/mp3";
+        }
+        else if([[self.pickerArray objectAtIndex:row] isEqualToString:@"视频"]){
+            self.name = @"video";
+            self.mimeType = @"video/mp4";
+        }
+        else if([[self.pickerArray objectAtIndex:row] isEqualToString:@"其他文件"]){
+            self.name = @"other";
+            self.mimeType = @"application/octet-stream";
+        }
     }
 }
 
@@ -396,6 +417,10 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     NSString *tmpDir = NSTemporaryDirectory();
     NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
     
+    [self NSURLSessionGetMIMETypeWithPath:filePath mimeType:^(NSString *MIMEType) {
+        self.mimeType = MIMEType;
+    }];
+    
     QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
     
     QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:self.mimeType progressHandler:^(NSString *key, float percent) {
@@ -414,6 +439,18 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         NSLog(@"info ===== %@", info);
         NSLog(@"resp ===== %@", resp);
     } option:opt];
+}
+
+- (void)NSURLSessionGetMIMETypeWithPath:(NSString *)path mimeType:(nullable void(^)(NSString * MIMEType))mimeType{
+    NSURL * url = [NSURL fileURLWithPath:path];
+    NSMutableURLRequest * request = [NSMutableURLRequest requestWithURL:url];
+    NSURLSession * session = [NSURLSession sharedSession];
+    NSURLSessionDataTask * dataTask = [session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (mimeType) {
+            mimeType(response.MIMEType);
+        }
+    }];
+    [dataTask resume];
 }
 
 /***************  图片处理,此方法解决了, (手机竖屏拍照,图片会横倒的问题)  *****************/
@@ -504,6 +541,30 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         dispatch_async(dispatch_get_main_queue(), ^{
             [self.fileNameField setText:fileString];
             self.fileName = [NSString stringWithFormat:@"%@",self.fileNameField.text];
+            NSString *tmpDir = NSTemporaryDirectory();
+            NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+            [self NSURLSessionGetMIMETypeWithPath:filePath mimeType:^(NSString *MIMEType) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.filemimetypeLbl setText:MIMEType];
+                    self.mimeType = MIMEType;
+                    if ([MIMEType isEqualToString:@"image/jpeg"] || [MIMEType isEqualToString:@"image/png"] || [MIMEType isEqualToString:@"image/gif"]) {
+                        self.name = @"image";
+                        [self.fileTypePicker selectRow:0 inComponent:0 animated:YES];
+                    }
+                    else if ([MIMEType isEqualToString:@"audio/mpeg"]) {
+                        self.name = @"audio";
+                        [self.fileTypePicker selectRow:1 inComponent:0 animated:YES];
+                    }
+                    else if ([MIMEType isEqualToString:@"video/mp4"]) {
+                        self.name = @"video";
+                        [self.fileTypePicker selectRow:2 inComponent:0 animated:YES];
+                    }
+                    else{
+                        self.name = @"other";
+                        [self.fileTypePicker selectRow:3 inComponent:0 animated:YES];
+                    }
+                });
+            }];
         });
     }];
 }
@@ -831,7 +892,13 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [folderArray addObject:file];
         }else
         {
-            [fileArray addObject:file];
+            if ([file isEqualToString:@".DS_Store"]) {
+                
+            }
+            else
+            {
+                [fileArray addObject:file];
+            }
         }
         isDir = NO;
     }
