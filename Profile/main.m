@@ -18,7 +18,9 @@
 #define UrlString @"http://media.powersenz.com/greattalk/public/api"
 
 #define StatusBar_Height [[UIApplication sharedApplication] statusBarFrame].size.height
-#define NavBar_Height self.navigationController.navigationBar.frame.size.height
+
+#define IS_NAV_NO_HEIGHT (self.navigationController.navigationBar.frame.size.height == 0.00)?YES:NO
+#define NavBar_Height ((IS_NAV_NO_HEIGHT)?50:self.navigationController.navigationBar.frame.size.height)
 
 #define TopBar_Height (StatusBar_Height + NavBar_Height)
 
@@ -61,6 +63,12 @@
                    failure:(void (^)(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error))pp_failure;
 @end
 
+#pragma mark - UIButton(Create) interface
+
+@interface UIButton (Create)
++ (UIButton *)setButtonWithFrame:(CGRect)frame center:(CGPoint)point backGroundColor:(UIColor *)backgroundcolor title:(NSString *)title font:(UIFont *)font titleColor:(UIColor *)titlecolor;
+@end
+
 #pragma mark - ProfileViewController interface
 @interface ProfileViewController : UIViewController
 
@@ -81,6 +89,17 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 - (void)fileNameSelect:(TmpListFilePressHandler)fileNameHandler;
 @end
 
+#pragma mark - UploadViewController interface
+@interface UploadViewController : UIViewController
+@property(strong ,nonatomic)NSString * name;
+@property(strong ,nonatomic)NSString * fileName;
+@property(strong ,nonatomic)NSString * mimeType;
+
+@property(strong ,nonatomic)NSString * bucket;
+
+@end
+
+
 #pragma mark - PAppDelegate
 @implementation PAppDelegate
 
@@ -96,6 +115,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     _pfViewController = [[ProfileViewController alloc] init];
     _pfViewController.view.frame = CGRectMake(0, 0, WinSize.width, WinSize.height);
     UINavigationController * profileVNC = [[UINavigationController alloc] initWithRootViewController:_pfViewController];
+    [profileVNC.navigationBar setTitleTextAttributes:@{NSForegroundColorAttributeName : BaseColor}];
     [_window setRootViewController:profileVNC];
 }
 
@@ -109,7 +129,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property (strong, nonatomic)UITextField * fileNameField;
 @property (strong, nonatomic)UIPickerView * fileTypePicker;
 @property (strong, nonatomic)UILabel * filemimetypeLbl;
-@property (strong, nonatomic)UIButton * uploadButton;
+//@property (strong, nonatomic)UIButton * uploadButton;
 @property (strong, nonatomic)UIButton * uploadQiniuButton;
 
 //数据部分
@@ -122,36 +142,10 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 @implementation ProfileViewController
 
-+ (UIButton *)setButtonWithFrame:(CGRect)frame center:(CGPoint)point backGroundColor:(UIColor *)backgroundcolor title:(NSString *)title font:(UIFont *)font titleColor:(UIColor *)titlecolor{
-    UIButton * button = [UIButton buttonWithType:UIButtonTypeCustom];
-    [button setFrame:frame];
-    [button setCenter:point];
-    [button setBackgroundColor:backgroundcolor];
-    [button setTitle:title forState:UIControlStateNormal];
-    [button.titleLabel setFont:font];
-    [button setTitleColor:titlecolor forState:UIControlStateNormal];
-    [button setTitleColor:[UIColor grayColor] forState:UIControlStateSelected];
-    [button setTitleColor:[UIColor grayColor] forState:UIControlStateHighlighted];
-    
-    [button.layer setMasksToBounds:YES];
-    [button.layer setCornerRadius:4.0f];
-    [button.layer setBorderWidth:1.0f];
-    [button.layer setBorderColor:BaseColor.CGColor];
-    return button;
-}
-
-- (instancetype)init
-{
-    self = [super init];
-    if (self) {
-        [self.view setBackgroundColor:[UIColor whiteColor]];
-    }
-    return self;
-}
-
 - (void)initNavigation
 {
-    UIButton * showTmpPath = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, 70, 40)
+    self.title = @"七牛文件上传";
+    UIButton * showTmpPath = [UIButton setButtonWithFrame:CGRectMake(0, 0, 70, 40)
                                                                 center:CGPointMake(40, 70)
                                                        backGroundColor:BaseColor
                                                                  title:@"Tmp路径"
@@ -163,7 +157,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     UIBarButtonItem * rightBackBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:showTmpPath];
     self.navigationItem.rightBarButtonItem = rightBackBarButtonItem;
     
-    UIButton * getTmpList = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, 70, 40)
+    UIButton * getTmpList = [UIButton setButtonWithFrame:CGRectMake(0, 0, 70, 40)
                                                                center:CGPointMake(40, 70)
                                                       backGroundColor:BaseColor
                                                                 title:@"Tmp列表"
@@ -179,6 +173,8 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 - (void)viewDidLoad{
     [super viewDidLoad];
     
+    [self.view setBackgroundColor:[UIColor whiteColor]];
+
     self.pickerArray = [[NSArray alloc] initWithObjects:@"图片",@"音频",@"视频",@"其他文件", nil];
     
     [self initNavigation];
@@ -237,17 +233,17 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.fileTypePicker.layer setBorderColor:BaseColor.CGColor];
     [self.fileTypePicker.layer setCornerRadius:10.0f];
     
-    self.uploadButton = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
-                                                           center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.fileTypePicker.frame)+50)
-                                                  backGroundColor:[UIColor whiteColor]
-                                                            title:@"服务器上传文件"
-                                                             font:[UIFont fontWithName:@"Arial" size:20.0f]
-                                                       titleColor:BaseColor];
-    [self.uploadButton addTarget:self action:@selector(uploadPress:) forControlEvents:UIControlEventTouchUpInside];
-    [self.backView addSubview:self.uploadButton];
+//    self.uploadButton = [UIButton setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
+//                                                           center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.fileTypePicker.frame)+50)
+//                                                  backGroundColor:[UIColor whiteColor]
+//                                                            title:@"服务器上传文件"
+//                                                             font:[UIFont fontWithName:@"Arial" size:20.0f]
+//                                                       titleColor:BaseColor];
+//    [self.uploadButton addTarget:self action:@selector(uploadPress:) forControlEvents:UIControlEventTouchUpInside];
+//    [self.backView addSubview:self.uploadButton];
     
-    self.uploadQiniuButton = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
-                                                           center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.uploadButton.frame)+50)
+    self.uploadQiniuButton = [UIButton setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
+                                                           center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.fileTypePicker.frame)+50)
                                                   backGroundColor:[UIColor whiteColor]
                                                             title:@"Qiniu上传文件"
                                                              font:[UIFont fontWithName:@"Arial" size:20.0f]
@@ -392,53 +388,30 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 }
 #pragma mark - Qiniu上传事件
 - (void)qiniuUploadPress:(id)sender{
-    PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
-    [netWork networkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
-        NSDictionary * result = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableContainers error:nil];
-        NSLog(@"%@",result);
-        NSDictionary * resultData = [result objectForKey:@"data"];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
-        });
-    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
-        NSLog(@"%@",error);
-    }];
-}
-
-
-- (void)uploadFileToQinniuWithUpToken:(NSString *)qiniu_token{
-    //华南
-    QNConfiguration *config = [QNConfiguration build:^(QNConfigurationBuilder *builder) {
-        builder.zone = [QNFixedZone zone2];
-    }];
-    //重用uploadManager。一般地，只需要创建一个uploadManager对象
-    NSString * token = qiniu_token;//从服务端SDK获取
-    NSString * key = self.fileName;
-    NSString *tmpDir = NSTemporaryDirectory();
-    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
-    
-    [self NSURLSessionGetMIMETypeWithPath:filePath mimeType:^(NSString *MIMEType) {
-        self.mimeType = MIMEType;
-    }];
-    
-    QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
-    
-    QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:self.mimeType progressHandler:^(NSString *key, float percent) {
-        NSLog(@"percent ----- %f",percent);
-    } params:@{@"fname":self.fileName, @"x:filename":[NSString stringWithFormat:@"%@",self.fileName] } checkCrc:YES cancellationSignal:nil];
-    
-    [upManager putFile:filePath key:key token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
-        if(info.ok)
-        {
-            NSLog(@"请求成功");
-        }
-        else{
-            NSLog(@"失败");
-            //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
-        }
-        NSLog(@"info ===== %@", info);
-        NSLog(@"resp ===== %@", resp);
-    } option:opt];
+    if ([self.fileName isEqualToString:@""] || self.fileName == nil) {
+        
+    }
+    else if ([self.mimeType isEqualToString:@""] || self.mimeType == nil)
+    {
+        
+    }
+    else
+    {
+        NSString *tmpDir = NSTemporaryDirectory();
+        NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+        [self NSURLSessionGetMIMETypeWithPath:filePath mimeType:^(NSString *MIMEType) {
+            self.mimeType = MIMEType;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                NSLog(@"%@",self.fileName);
+                UploadViewController * uploadVC = [[UploadViewController alloc] init];
+                [uploadVC setName:self.name];
+                [uploadVC setFileName:self.fileName];
+                [uploadVC setMimeType:self.mimeType];
+                [uploadVC setBucket:@"greattalk"];
+                [self.navigationController pushViewController:uploadVC animated:YES];
+            });
+        }];
+    }
 }
 
 - (void)NSURLSessionGetMIMETypeWithPath:(NSString *)path mimeType:(nullable void(^)(NSString * MIMEType))mimeType{
@@ -605,6 +578,30 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 @end
 
+#pragma mark - UIButton (Create)
+@implementation UIButton (Create)
+
++ (UIButton *)setButtonWithFrame:(CGRect)frame center:(CGPoint)point backGroundColor:(UIColor *)backgroundcolor title:(NSString *)title font:(UIFont *)font titleColor:(UIColor *)titlecolor{
+    UIButton * button = [UIButton buttonWithType:UIButtonTypeCustom];
+    [button setFrame:frame];
+    [button setCenter:point];
+    [button setBackgroundColor:backgroundcolor];
+    [button setTitle:title forState:UIControlStateNormal];
+    [button.titleLabel setFont:font];
+    [button setTitleColor:titlecolor forState:UIControlStateNormal];
+    [button setTitleColor:[UIColor grayColor] forState:UIControlStateSelected];
+    [button setTitleColor:[UIColor grayColor] forState:UIControlStateHighlighted];
+    
+    [button.layer setMasksToBounds:YES];
+    [button.layer setCornerRadius:4.0f];
+    [button.layer setBorderWidth:1.0f];
+    [button.layer setBorderColor:BaseColor.CGColor];
+    return button;
+}
+
+
+@end
+
 #pragma mark - PPFileNetWorking
 
 @interface PPFileNetWorking()
@@ -763,17 +760,10 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @implementation TmpListViewController
 @synthesize fileTableView;
 
-- (instancetype)init
-{
-    if (self = [super init]) {
-        [self.view setBackgroundColor:[UIColor whiteColor]];
-    }
-    return self;
-}
-
 - (void)initNavigation
 {
-    UIButton * refreshBtn = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, 70, 40)
+    self.title = @"选择文件";
+    UIButton * refreshBtn = [UIButton setButtonWithFrame:CGRectMake(0, 0, 70, 40)
                                                                 center:CGPointMake(40, 70)
                                                        backGroundColor:BaseColor
                                                                  title:@"刷新"
@@ -785,7 +775,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     UIBarButtonItem * rightBackBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:refreshBtn];
     self.navigationItem.rightBarButtonItem = rightBackBarButtonItem;
     
-    UIButton * backBtn = [ProfileViewController setButtonWithFrame:CGRectMake(0, 0, 70, 40)
+    UIButton * backBtn = [UIButton setButtonWithFrame:CGRectMake(0, 0, 70, 40)
                                                                center:CGPointMake(40, 70)
                                                       backGroundColor:BaseColor
                                                                 title:@"返回"
@@ -800,6 +790,9 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 - (void)viewDidLoad{
     [super viewDidLoad];
+    
+    [self.view setBackgroundColor:[UIColor whiteColor]];
+
     [self initNavigation];
     self.fileListArray = [[NSMutableArray alloc] init];
     
@@ -909,6 +902,310 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 
 @end
+
+
+#pragma mark - UploadViewController
+@interface UploadViewController()<UITextFieldDelegate,UITextViewDelegate>
+@property(strong, nonatomic)UILabel * fileNameLbl;
+@property(strong, nonatomic)UILabel * mimeTypeLbl;
+
+@property(strong, nonatomic)UITextField * mainTypeField;
+@property(strong, nonatomic)UITextView * wordsView;
+
+@property(strong, nonatomic)UITextField * wordField;
+
+@end
+
+@implementation UploadViewController
+
+
+- (void)initNavigation
+{
+    self.title = @"上传文件";
+    NSShadow *shadow = [[NSShadow alloc] init];
+    [shadow setShadowColor:[UIColor lightGrayColor]];
+    [shadow setShadowOffset:CGSizeMake(0.5, 0.0)];
+    NSDictionary *titleTextAttDict = [NSDictionary dictionaryWithObjectsAndKeys:BaseColor, NSForegroundColorAttributeName, [UIFont fontWithName:@"Arial" size:20.0f], NSFontAttributeName, shadow, NSShadowAttributeName, nil];
+    [self.navigationController.navigationBar setTitleTextAttributes:titleTextAttDict];
+    UIButton * backBtn = [UIButton setButtonWithFrame:CGRectMake(0, 0, 70, 40)
+                                                               center:CGPointMake(40, 70)
+                                                      backGroundColor:BaseColor
+                                                                title:@"返回"
+                                                                 font:[UIFont fontWithName:@"Arial" size:15.0f]
+                                                           titleColor:[UIColor whiteColor]
+                             ];
+    
+    [backBtn addTarget:self action:@selector(backButtonPress:) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem * leftBackBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:backBtn];
+    self.navigationItem.leftBarButtonItem = leftBackBarButtonItem;
+    
+    UIButton * uploadBtn = [UIButton setButtonWithFrame:CGRectMake(0, 0, 70, 40)
+                                               center:CGPointMake(40, 70)
+                                      backGroundColor:BaseColor
+                                                title:@"上传"
+                                                 font:[UIFont fontWithName:@"Arial" size:15.0f]
+                                           titleColor:[UIColor whiteColor]
+                          ];
+    
+    [uploadBtn addTarget:self action:@selector(upLoadPress:) forControlEvents:UIControlEventTouchUpInside];
+    UIBarButtonItem * rightBackBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:uploadBtn];
+    self.navigationItem.rightBarButtonItem = rightBackBarButtonItem;
+}
+
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    
+    [self.view setBackgroundColor:[UIColor whiteColor]];
+
+    [self initNavigation];
+    [self createView];
+}
+
+- (void)backButtonPress:(id)sender{
+    [self.navigationController popViewControllerAnimated:YES];
+}
+
+- (void)createView{
+    
+    self.fileNameLbl = [[UILabel alloc] initWithFrame:CGRectMake(10, TopBar_Height + 10, WinSize.width - 20, 50)];
+    [self.fileNameLbl setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.fileNameLbl setTextColor:BaseColor];
+    [self.fileNameLbl setTextAlignment:NSTextAlignmentCenter];
+    [self.fileNameLbl setNumberOfLines:0];
+    [self.fileNameLbl setBackgroundColor:[UIColor clearColor]];
+    [self.view addSubview:self.fileNameLbl];
+    [self.fileNameLbl.layer setMasksToBounds:YES];
+    [self.fileNameLbl.layer setBorderColor:BaseColor.CGColor];
+    [self.fileNameLbl.layer setBorderWidth:1.0f];
+    [self.fileNameLbl.layer setCornerRadius:10.0f];
+    [self.fileNameLbl setText:self.fileName];
+
+    self.mimeTypeLbl = [[UILabel alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.fileNameLbl.frame)+20, WinSize.width - 20, 50)];
+    [self.mimeTypeLbl setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.mimeTypeLbl setTextColor:BaseColor];
+    [self.mimeTypeLbl setTextAlignment:NSTextAlignmentCenter];
+    [self.mimeTypeLbl setNumberOfLines:0];
+    [self.mimeTypeLbl setBackgroundColor:[UIColor clearColor]];
+    [self.view addSubview:self.mimeTypeLbl];
+    [self.mimeTypeLbl.layer setMasksToBounds:YES];
+    [self.mimeTypeLbl.layer setBorderColor:BaseColor.CGColor];
+    [self.mimeTypeLbl.layer setBorderWidth:1.0f];
+    [self.mimeTypeLbl.layer setCornerRadius:10.0f];
+    [self.mimeTypeLbl setText:self.mimeType];
+
+    
+    if ([self.name isEqualToString:@"image"]) {
+        [self createUploadPicView];
+    }
+    else if([self.name isEqualToString:@"audio"]) {
+        [self createUploadAudioView];
+    }
+    else if([self.name isEqualToString:@"video"]) {
+
+    }
+    else if([self.name isEqualToString:@"other"]) {
+
+    }
+}
+
+- (void)createUploadPicView{
+    self.mainTypeField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mimeTypeLbl.frame)+20, WinSize.width - 20, 50)];
+    [self.mainTypeField setTextColor:BaseColor];
+    [self.mainTypeField setTextAlignment:NSTextAlignmentLeft];
+    [self.mainTypeField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.mainTypeField setBackgroundColor:[UIColor clearColor]];
+    [self.mainTypeField setDelegate:self];
+    [self.mainTypeField setPlaceholder:@"输入文件归属类型"];
+    [self.mainTypeField.layer setMasksToBounds:YES];
+    [self.mainTypeField.layer setBorderColor:BaseColor.CGColor];
+    [self.mainTypeField.layer setBorderWidth:1.0f];
+    [self.mainTypeField.layer setCornerRadius:10.0f];
+    [self.view addSubview:self.mainTypeField];
+    
+    self.wordsView = [[UITextView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mainTypeField.frame)+20, WinSize.width - 20, 150)];
+    [self.wordsView setTextColor:BaseColor];
+    [self.wordsView setDelegate:self];
+    [self.wordsView setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.wordsView setTextAlignment:NSTextAlignmentLeft];
+    [self.wordsView setBackgroundColor:[UIColor clearColor]];
+    [self.view addSubview:self.wordsView];
+    [self.wordsView.layer setMasksToBounds:YES];
+    [self.wordsView.layer setBorderColor:BaseColor.CGColor];
+    [self.wordsView.layer setBorderWidth:1.0f];
+    [self.wordsView.layer setCornerRadius:10.0f];
+    
+    UIView * cancelView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, WinSize.width, 45)];
+    [cancelView setBackgroundColor:[UIColor clearColor]];
+    [cancelView.layer setMasksToBounds:YES];
+    [cancelView.layer setBorderColor:BaseColor.CGColor];
+    [cancelView.layer setBorderWidth:1.0f];
+    [cancelView.layer setCornerRadius:10.0f];
+    
+    UIButton * cancelBtn = [UIButton setButtonWithFrame:CGRectMake(0, 0, 70, 40)
+                                               center:CGPointMake(WinSize.width - 40, 45/2)
+                                      backGroundColor:BaseColor
+                                                title:@"取消"
+                                                 font:[UIFont fontWithName:@"Arial" size:15.0f]
+                                           titleColor:[UIColor whiteColor]
+                          ];
+    [cancelBtn addTarget:self action:@selector(cancelButtonPress:) forControlEvents:UIControlEventTouchUpInside];
+    [cancelView addSubview:cancelBtn];
+    self.wordsView.inputAccessoryView = cancelView;
+}
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+    [self.wordsView resignFirstResponder];
+    [self.wordField resignFirstResponder];
+    [self.mainTypeField resignFirstResponder];
+}
+
+- (void)textViewDidBeginEditing:(UITextView *)textView
+{
+    [UIView animateWithDuration:0.3 animations:^{
+        CGRect frame = self.view.frame;
+        frame.origin.y = frame.origin.y - 70;
+        self.view.frame = frame;
+    }];
+}
+
+- (void)textViewDidEndEditing:(UITextView *)textView
+{
+    [UIView animateWithDuration:0.3 animations:^{
+        CGRect frame = self.view.frame;
+        frame.origin.y = frame.origin.y + 70;
+        self.view.frame = frame;
+    } completion:^(BOOL finished) {
+        
+    }];
+}
+
+- (BOOL)textView:(UITextView *)textView shouldChangeTextInRange:(NSRange)range replacementText:(NSString *)text{
+    if ([text isEqualToString:@"\n"]){ //判断输入的字是否是回车，即按下return
+        //在这里做你响应return键的代码
+        NSString * textViewString = [NSString stringWithFormat:@"%@#",textView.text];
+        textView.text = textViewString;
+        return NO; //这里返回NO，就代表return键值失效，即页面上按下return，不会出现换行，如果为yes，则输入页面会换行
+    }
+    
+    return YES;
+}
+
+- (void)cancelButtonPress:(id)sender{
+    [self.wordsView resignFirstResponder];
+}
+
+- (void)createUploadAudioView{
+    self.mainTypeField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mimeTypeLbl.frame)+20, WinSize.width - 20, 50)];
+    [self.mainTypeField setTextColor:BaseColor];
+    [self.mainTypeField setTextAlignment:NSTextAlignmentLeft];
+    [self.mainTypeField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.mainTypeField setBackgroundColor:[UIColor clearColor]];
+    [self.mainTypeField setDelegate:self];
+    [self.mainTypeField setPlaceholder:@"输入文件归属类型"];
+    [self.mainTypeField.layer setMasksToBounds:YES];
+    [self.mainTypeField.layer setBorderColor:BaseColor.CGColor];
+    [self.mainTypeField.layer setBorderWidth:1.0f];
+    [self.mainTypeField.layer setCornerRadius:10.0f];
+    [self.view addSubview:self.mainTypeField];
+    
+    self.wordField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mainTypeField.frame)+20, WinSize.width - 20, 50)];
+    [self.wordField setTextColor:BaseColor];
+    [self.wordField setTextAlignment:NSTextAlignmentLeft];
+    [self.wordField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.wordField setBackgroundColor:[UIColor clearColor]];
+    [self.wordField setDelegate:self];
+    [self.wordField setPlaceholder:@"输入文件对应单词"];
+    [self.wordField.layer setMasksToBounds:YES];
+    [self.wordField.layer setBorderColor:BaseColor.CGColor];
+    [self.wordField.layer setBorderWidth:1.0f];
+    [self.wordField.layer setCornerRadius:10.0f];
+    [self.view addSubview:self.wordField];
+}
+
+- (void)upLoadPress:(id)sender{
+    
+}
+/**
+ * 上传图片时需要的数据
+ * maintype 文件归属类型，比如，属于字母A学习的
+ * words 对应的单词，当有多个单词是，以#分开 如，apple#part#bate
+ * fname 对应的文件名
+ * filebucket 文件所在存储空间
+ */
+/**
+ * 上传音频时需要的数据
+ * word 对应的单词
+ * fname 对应的文件名
+ * filebucket 文件所在存储空间
+ */
+#pragma mark - Qiniu上传事件
+- (void)qiniuUploadPress:(id)sender{
+    PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
+    [netWork networkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+        NSDictionary * result = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableContainers error:nil];
+        NSLog(@"%@",result);
+        NSDictionary * resultData = [result objectForKey:@"data"];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
+        });
+    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+        NSLog(@"%@",error);
+    }];
+}
+
+
+- (void)uploadFileToQinniuWithUpToken:(NSString *)qiniu_token{
+    //华南
+    QNConfiguration *config = [QNConfiguration build:^(QNConfigurationBuilder *builder) {
+        builder.zone = [QNFixedZone zone2];
+    }];
+    //重用uploadManager。一般地，只需要创建一个uploadManager对象
+    NSString * token = qiniu_token;//从服务端SDK获取
+    NSString * key = self.fileName;
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    
+    [self NSURLSessionGetMIMETypeWithPath:filePath mimeType:^(NSString *MIMEType) {
+        self.mimeType = MIMEType;
+    }];
+    
+    QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
+    
+    QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:self.mimeType progressHandler:^(NSString *key, float percent) {
+        NSLog(@"percent ----- %f",percent);
+    } params:@{@"fname":self.fileName, @"x:filename":[NSString stringWithFormat:@"%@",self.fileName] } checkCrc:YES cancellationSignal:nil];
+    
+    [upManager putFile:filePath key:key token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
+        if(info.ok)
+        {
+            NSLog(@"请求成功");
+        }
+        else{
+            NSLog(@"失败");
+            //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
+        }
+        NSLog(@"info ===== %@", info);
+        NSLog(@"resp ===== %@", resp);
+    } option:opt];
+}
+
+- (void)NSURLSessionGetMIMETypeWithPath:(NSString *)path mimeType:(nullable void(^)(NSString * MIMEType))mimeType{
+    NSURL * url = [NSURL fileURLWithPath:path];
+    NSMutableURLRequest * request = [NSMutableURLRequest requestWithURL:url];
+    NSURLSession * session = [NSURLSession sharedSession];
+    NSURLSessionDataTask * dataTask = [session dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (mimeType) {
+            mimeType(response.MIMEType);
+        }
+    }];
+    [dataTask resume];
+}
+
+@end
+
 
 #pragma mark - main
 int main(int argc, char * argv[]) {
