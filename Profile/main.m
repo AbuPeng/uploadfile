@@ -74,6 +74,12 @@
 
 @end
 
+#pragma mark - ImagePreviewViewController interface
+@interface ImagePreviewViewController : UIViewController
+- (instancetype)initWithFilePath:(NSString *)filePath;
+@end
+
+
 #pragma mark - PAppDelegate interface
 @interface PAppDelegate : UIResponder <UIApplicationDelegate>
 
@@ -138,6 +144,8 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property (strong, nonatomic)NSString * mimeType;//文件的mimetype 如 image/jpg, image/png等
 
 @property (strong, nonatomic)NSArray * pickerArray;
+
+@property (strong, nonatomic)UIButton * previewImageButton;
 @end
 
 @implementation ProfileViewController
@@ -250,6 +258,24 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
                                                        titleColor:BaseColor];
     [self.uploadQiniuButton addTarget:self action:@selector(qiniuUploadPress:) forControlEvents:UIControlEventTouchUpInside];
     [self.backView addSubview:self.uploadQiniuButton];
+    
+    
+    self.previewImageButton = [UIButton setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
+                                                   center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.uploadQiniuButton.frame)+50)
+                                          backGroundColor:[UIColor whiteColor]
+                                                    title:@"预览图片文件"
+                                                     font:[UIFont fontWithName:@"Arial" size:20.0f]
+                                               titleColor:BaseColor];
+    [self.previewImageButton addTarget:self action:@selector(previewImageButtonPress:) forControlEvents:UIControlEventTouchUpInside];
+    [self.previewImageButton setHidden:YES];
+    [self.backView addSubview:self.previewImageButton];
+}
+
+- (void)previewImageButtonPress:(id)sender{
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    ImagePreviewViewController * imagePVC = [[ImagePreviewViewController alloc] initWithFilePath:filePath];
+    [self presentViewController:imagePVC animated:YES completion:nil];
 }
 
 - (void)keyBoardHidden:(id)sender{
@@ -318,18 +344,22 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         if ([[self.pickerArray objectAtIndex:row] isEqualToString:@"图片"]) {
             self.name = @"image";
             self.mimeType = @"image/jpeg";
+            [self.previewImageButton setHidden:NO];
         }
         else if([[self.pickerArray objectAtIndex:row] isEqualToString:@"音频"]){
             self.name = @"audio";
             self.mimeType = @"audio/mp3";
+            [self.previewImageButton setHidden:YES];
         }
         else if([[self.pickerArray objectAtIndex:row] isEqualToString:@"视频"]){
             self.name = @"video";
             self.mimeType = @"video/mp4";
+            [self.previewImageButton setHidden:YES];
         }
         else if([[self.pickerArray objectAtIndex:row] isEqualToString:@"其他文件"]){
             self.name = @"other";
             self.mimeType = @"application/octet-stream";
+            [self.previewImageButton setHidden:YES];
         }
     }
 }
@@ -523,18 +553,22 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
                     if ([MIMEType isEqualToString:@"image/jpeg"] || [MIMEType isEqualToString:@"image/png"] || [MIMEType isEqualToString:@"image/gif"]) {
                         self.name = @"image";
                         [self.fileTypePicker selectRow:0 inComponent:0 animated:YES];
+                        [self.previewImageButton setHidden:NO];
                     }
                     else if ([MIMEType isEqualToString:@"audio/mpeg"]) {
                         self.name = @"audio";
                         [self.fileTypePicker selectRow:1 inComponent:0 animated:YES];
+                        [self.previewImageButton setHidden:YES];
                     }
                     else if ([MIMEType isEqualToString:@"video/mp4"]) {
                         self.name = @"video";
                         [self.fileTypePicker selectRow:2 inComponent:0 animated:YES];
+                        [self.previewImageButton setHidden:YES];
                     }
                     else{
                         self.name = @"other";
                         [self.fileTypePicker selectRow:3 inComponent:0 animated:YES];
+                        [self.previewImageButton setHidden:YES];
                     }
                 });
             }];
@@ -625,14 +659,22 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
            success:(void (^)(NSURLSessionDataTask * _Nonnull task, id _Nullable responseObject))pp_success
            failure:(void (^)(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error))pp_failure{
     NSString * url = [NSString stringWithFormat:@"%@/%@/%@?",urlString,controller,action];
+    
     AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
+    // 设置超时时间
+    [manager.requestSerializer willChangeValueForKey:@"timeoutInterval"];
+    manager.requestSerializer.timeoutInterval = 60.f;
+    [manager.requestSerializer didChangeValueForKey:@"timeoutInterval"];
     //申明请求的数据类型设置
     manager.requestSerializer=[AFHTTPRequestSerializer serializer];
     //返回数据类型设置
     manager.responseSerializer = [AFHTTPResponseSerializer serializer];
-    manager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects:@"text/html",@"text/plain",@"application/json", @"text/json", @"text/javascript" ,nil];
-    [manager.requestSerializer setValue:@"text/plain;charset=utf-8" forHTTPHeaderField:@"Content-Type"];
-    [manager POST:url parameters:parameters progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+    manager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects:@"text/html",@"text/plain",@"application/json",@"text/json",@"text/xml", @"text/javascript" ,nil];
+    [manager POST:url parameters:parameters headers:nil constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+        
+    } progress:^(NSProgress * _Nonnull uploadProgress) {
+        
+    } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         if (pp_success) {
             pp_success(task,responseObject);
         }
@@ -641,6 +683,15 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             pp_failure(task,error);
         }
     }];
+//    [manager POST:url parameters:parameters progress:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+//        if (pp_success) {
+//            pp_success(task,responseObject);
+//        }
+//    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+//        if (pp_failure) {
+//            pp_failure(task,error);
+//        }
+//    }];
 
 }
 
@@ -958,7 +1009,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [super viewDidLoad];
     
     [self.view setBackgroundColor:[UIColor whiteColor]];
-
+    
     [self initNavigation];
     [self createView];
 }
@@ -1053,6 +1104,22 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [cancelBtn addTarget:self action:@selector(cancelButtonPress:) forControlEvents:UIControlEventTouchUpInside];
     [cancelView addSubview:cancelBtn];
     self.wordsView.inputAccessoryView = cancelView;
+    
+    UIButton * previewImageButton = [UIButton setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
+                                                    center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.wordsView.frame)+50)
+                                           backGroundColor:[UIColor whiteColor]
+                                                     title:@"预览图片文件"
+                                                      font:[UIFont fontWithName:@"Arial" size:20.0f]
+                                                titleColor:BaseColor];
+    [previewImageButton addTarget:self action:@selector(previewImageButtonPress:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:previewImageButton];
+}
+
+- (void)previewImageButtonPress:(id)sender{
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    ImagePreviewViewController * imagePVC = [[ImagePreviewViewController alloc] initWithFilePath:filePath];
+    [self presentViewController:imagePVC animated:YES completion:nil];
 }
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
@@ -1098,20 +1165,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 }
 
 - (void)createUploadAudioView{
-    self.mainTypeField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mimeTypeLbl.frame)+20, WinSize.width - 20, 50)];
-    [self.mainTypeField setTextColor:BaseColor];
-    [self.mainTypeField setTextAlignment:NSTextAlignmentLeft];
-    [self.mainTypeField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
-    [self.mainTypeField setBackgroundColor:[UIColor clearColor]];
-    [self.mainTypeField setDelegate:self];
-    [self.mainTypeField setPlaceholder:@"输入文件归属类型"];
-    [self.mainTypeField.layer setMasksToBounds:YES];
-    [self.mainTypeField.layer setBorderColor:BaseColor.CGColor];
-    [self.mainTypeField.layer setBorderWidth:1.0f];
-    [self.mainTypeField.layer setCornerRadius:10.0f];
-    [self.view addSubview:self.mainTypeField];
-    
-    self.wordField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mainTypeField.frame)+20, WinSize.width - 20, 50)];
+    self.wordField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mimeTypeLbl.frame)+20, WinSize.width - 20, 50)];
     [self.wordField setTextColor:BaseColor];
     [self.wordField setTextAlignment:NSTextAlignmentLeft];
     [self.wordField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
@@ -1126,7 +1180,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 }
 
 - (void)upLoadPress:(id)sender{
-    
+    [self qiniuUploadPress:nil];
 }
 /**
  * 上传图片时需要的数据
@@ -1143,8 +1197,46 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
  */
 #pragma mark - Qiniu上传事件
 - (void)qiniuUploadPress:(id)sender{
+    if ([self.name isEqualToString:@"image"]) {
+        if ([self.mainTypeField.text isEqualToString:@""] || self.mainTypeField.text == nil) {
+            UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入文件归属类型" message:nil preferredStyle:UIAlertControllerStyleAlert];
+            UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+                
+            }];
+            [alertC addAction:alertA];
+            [self presentViewController:alertC animated:YES completion:nil];
+        }
+        if ([self.wordsView.text isEqualToString:@""] || self.wordsView.text == nil) {
+            UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入文件对应单词" message:nil preferredStyle:UIAlertControllerStyleAlert];
+            UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+                
+            }];
+            [alertC addAction:alertA];
+            [self presentViewController:alertC animated:YES completion:nil];
+        }
+    }
+    else if([self.name isEqualToString:@"audio"]) {
+        if ([self.wordField.text isEqualToString:@""] || self.wordField.text == nil) {
+            UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入文件对应单词" message:nil preferredStyle:UIAlertControllerStyleAlert];
+            UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+                
+            }];
+            [alertC addAction:alertA];
+            [self presentViewController:alertC animated:YES completion:nil];
+        }
+    }
+    else if([self.name isEqualToString:@"video"]) {
+        
+    }
+    else if([self.name isEqualToString:@"other"]) {
+        
+    }
+    
+    
     PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
-    [netWork networkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:nil success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+    NSMutableDictionary * dic = [[NSMutableDictionary alloc] init];
+    [dic setObject:self.name forKey:@"file_type"];
+    [netWork networkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         NSDictionary * result = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableContainers error:nil];
         NSLog(@"%@",result);
         NSDictionary * resultData = [result objectForKey:@"data"];
@@ -1172,11 +1264,37 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         self.mimeType = MIMEType;
     }];
     
-    QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
+    NSMutableDictionary * paramsDic = [NSMutableDictionary new];
+    if ([self.name isEqualToString:@"image"]) {
+        [paramsDic setObject:self.mainTypeField.text forKey:@"x:maintype"];
+        [paramsDic setObject:self.wordsView.text forKey:@"x:words"];
+        [paramsDic setObject:self.fileName forKey:@"fname"];
+        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
+        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+        
+//        paramsDic = @{@"fname":self.fileName,@"x:maintype":self.mainTypeField.text,@"x:words":self.wordsView.text,@"x:filebucket":self.bucket,@"x:mimeType":self.mimeType};
+        
+    }
+    else if([self.name isEqualToString:@"audio"]) {
+        [paramsDic setObject:self.wordField.text forKey:@"x:word"];
+        [paramsDic setObject:self.fileName forKey:@"fname"];
+        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
+        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+    }
+    else if([self.name isEqualToString:@"video"]) {
+        
+    }
+    else if([self.name isEqualToString:@"other"]) {
+        
+    }
     
+    NSLog(@"params ----- %@",paramsDic);
+
+    QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
+    // params: @{@"fname":self.fileName, @"x:filename":[NSString stringWithFormat:@"%@",self.fileName] }
     QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:self.mimeType progressHandler:^(NSString *key, float percent) {
         NSLog(@"percent ----- %f",percent);
-    } params:@{@"fname":self.fileName, @"x:filename":[NSString stringWithFormat:@"%@",self.fileName] } checkCrc:YES cancellationSignal:nil];
+    } params:paramsDic checkCrc:YES cancellationSignal:nil];
     
     [upManager putFile:filePath key:key token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
         if(info.ok)
@@ -1206,6 +1324,66 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 @end
 
+
+#pragma mark - ImagePreviewViewController
+@interface ImagePreviewViewController()<UIViewControllerTransitioningDelegate>
+@property (nonatomic, strong)UIView * bgView;
+@property (nonatomic, strong)NSString * imagePath;
+@property (nonatomic, strong)UIImageView * previewimageView;
+
+@end
+
+@implementation ImagePreviewViewController
+
+- (void)configureController
+{
+    self.providesPresentationContextTransitionStyle = YES;
+    self.definesPresentationContext = YES;
+    self.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+    self.modalPresentationStyle = UIModalPresentationCustom;
+    self.transitioningDelegate = self;
+}
+
+- (instancetype)initWithFilePath:(NSString *)filePath
+{
+    if (self = [super init]) {
+        [self configureController];
+        self.imagePath = filePath;
+    }
+    return self;
+}
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    
+    self.view.frame = CGRectMake(0, 0, WinSize.width, WinSize.height);
+    [self.view setBackgroundColor:[UIColor clearColor]];
+    self.modalPresentationStyle = UIModalPresentationOverCurrentContext;
+
+    self.bgView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, WinSize.width, WinSize.height)];
+    [self.bgView setBackgroundColor:[UIColor blackColor]];
+    [self.bgView setAlpha:0.5f];
+    [self.view addSubview:self.bgView];
+    
+    NSData * imageData = [NSData dataWithContentsOfFile:self.imagePath];
+    self.previewimageView = [[UIImageView alloc] initWithImage:[UIImage imageWithData:imageData]];
+    [self.previewimageView setFrame:CGRectMake(0, 0, 300, 425)];
+    [self.previewimageView setCenter:CGPointMake(WinSize.width/2, WinSize.height/2)];
+    [self.previewimageView setBackgroundColor:[UIColor clearColor]];
+    [self.view addSubview:self.previewimageView];
+    
+    UIControl * backControl = [[UIControl alloc] initWithFrame:CGRectMake(0, 0, WinSize.width, WinSize.height)];
+    [backControl addTarget:self action:@selector(backPress) forControlEvents:UIControlEventTouchUpInside];
+    [backControl setBackgroundColor:[UIColor clearColor]];
+    [self.view addSubview:backControl];
+}
+
+- (void)backPress{
+    [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+@end
 
 #pragma mark - main
 int main(int argc, char * argv[]) {
