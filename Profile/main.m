@@ -11,6 +11,9 @@
 #import "AFNetworking/AFNetworking.h"
 #import "QiniuSDK.h"
 
+#import "DMProgressHUD.h"
+
+
 #define WinSize [UIScreen mainScreen].bounds.size
 #define BaseColor [UIColor colorWithRed:243.0f/255.0f green:110.0f/255.0f blue:31.0f/255.0f alpha:1.0f]
 //#define UrlString @"http://localhost/api"
@@ -946,7 +949,11 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         }
         isDir = NO;
     }
-    [self.fileListArray addObjectsFromArray:fileArray];
+    
+    NSArray *result = [fileArray sortedArrayUsingComparator:^NSComparisonResult(id  _Nonnull obj1, id  _Nonnull obj2){
+        return [obj1 compare:obj2]; //升序
+    }];
+    [self.fileListArray addObjectsFromArray:result];
     [self.fileTableView reloadData];
     NSLog(@"All folders:%@ \nAll files:%@",folderArray,fileArray);
 }
@@ -1073,6 +1080,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.mainTypeField.layer setBorderColor:BaseColor.CGColor];
     [self.mainTypeField.layer setBorderWidth:1.0f];
     [self.mainTypeField.layer setCornerRadius:10.0f];
+    [self.mainTypeField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     [self.view addSubview:self.mainTypeField];
     
     self.wordsView = [[UITextView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mainTypeField.frame)+20, WinSize.width - 20, 150)];
@@ -1086,6 +1094,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.wordsView.layer setBorderColor:BaseColor.CGColor];
     [self.wordsView.layer setBorderWidth:1.0f];
     [self.wordsView.layer setCornerRadius:10.0f];
+    [self.wordsView setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     
     UIView * cancelView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, WinSize.width, 45)];
     [cancelView setBackgroundColor:[UIColor clearColor]];
@@ -1171,6 +1180,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.wordField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
     [self.wordField setBackgroundColor:[UIColor clearColor]];
     [self.wordField setDelegate:self];
+    [self.wordField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     [self.wordField setPlaceholder:@"输入文件对应单词"];
     [self.wordField.layer setMasksToBounds:YES];
     [self.wordField.layer setBorderColor:BaseColor.CGColor];
@@ -1232,7 +1242,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         
     }
     
-    
+    [self showProgressLoadingTypeCircle:@"获取上传信息！"];
     PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
     NSMutableDictionary * dic = [[NSMutableDictionary alloc] init];
     [dic setObject:self.name forKey:@"file_type"];
@@ -1240,16 +1250,21 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         NSDictionary * result = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableContainers error:nil];
         NSLog(@"%@",result);
         NSDictionary * resultData = [result objectForKey:@"data"];
+        [self dismissProgress];
+        [self showProgressStatusSuccess:@"获取成功"];
         dispatch_async(dispatch_get_main_queue(), ^{
             [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
         });
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
         NSLog(@"%@",error);
+        [self dismissProgress];
+        [self showProgressStatusFail:@"获取失败"];
     }];
 }
 
 
 - (void)uploadFileToQinniuWithUpToken:(NSString *)qiniu_token{
+    [self showProgressTypeSector:@"上传文件..."];
     //华南
     QNConfiguration *config = [QNConfiguration build:^(QNConfigurationBuilder *builder) {
         builder.zone = [QNFixedZone zone2];
@@ -1294,15 +1309,19 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     // params: @{@"fname":self.fileName, @"x:filename":[NSString stringWithFormat:@"%@",self.fileName] }
     QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:self.mimeType progressHandler:^(NSString *key, float percent) {
         NSLog(@"percent ----- %f",percent);
+        [self changeProgress:percent];
     } params:paramsDic checkCrc:YES cancellationSignal:nil];
     
     [upManager putFile:filePath key:key token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
         if(info.ok)
         {
             NSLog(@"请求成功");
+            [self dismissProgress];
+            [self showProgressStatusSuccess:@"上传成功"];
         }
         else{
             NSLog(@"失败");
+            [self showProgressStatusSuccess:@"上传失败"];
             //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
         }
         NSLog(@"info ===== %@", info);
@@ -1320,6 +1339,63 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         }
     }];
     [dataTask resume];
+}
+
+#pragma mark - Show HUD
+- (void)showProgressLoadingTypeCircle:(NSString *)text {
+    
+    DMProgressHUD *hud = [DMProgressHUD showHUDAddedTo:self.view animation:DMProgressHUDAnimationIncrement maskType:DMProgressHUDMaskTypeClear];
+    hud.mode = DMProgressHUDModeLoading;
+    hud.loadingType = DMProgressHUDLoadingTypeCircle;
+    hud.style = DMProgressHUDStyleLight;
+    hud.text = text;
+    hud.tag = 2222;
+}
+
+- (void)showProgressTypeSector:(NSString *)text {
+    
+    DMProgressHUD *hud = [DMProgressHUD showHUDAddedTo:self.view animation:DMProgressHUDAnimationIncrement maskType:DMProgressHUDMaskTypeClear];
+    hud.mode = DMProgressHUDModeProgress;
+    hud.progressType = DMProgressHUDProgressTypeSector;
+    hud.style = DMProgressHUDStyleLight;
+    hud.text = text;
+    hud.tag = 2222;
+}
+
+- (void)showProgressStatusSuccess:(NSString *)text {
+    DMProgressHUD *hud = [DMProgressHUD showHUDAddedTo:self.view animation:DMProgressHUDAnimationIncrement maskType:DMProgressHUDMaskTypeClear];
+    hud.mode = DMProgressHUDModeStatus;
+    hud.statusType = DMProgressHUDStatusTypeSuccess;
+    hud.style = DMProgressHUDStyleLight;
+    hud.text = text;
+    
+    [hud dismissAfter:1.0 completion:^{
+    }];
+}
+
+- (void)showProgressStatusFail:(NSString *)text {
+    
+    DMProgressHUD *hud = [DMProgressHUD showHUDAddedTo:self.view animation:DMProgressHUDAnimationIncrement maskType:DMProgressHUDMaskTypeClear];
+    hud.mode = DMProgressHUDModeStatus;
+    hud.statusType = DMProgressHUDStatusTypeFail;
+    hud.style = DMProgressHUDStyleLight;
+    hud.text = text;
+    
+    [hud dismissAfter:1.0 completion:^{
+    }];
+}
+
+- (void)dismissProgress{
+    DMProgressHUD *hud = (DMProgressHUD *)[self.view viewWithTag:2222];
+    [hud dismiss];
+}
+
+- (void)changeProgress:(float)progress {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        //refresh progress-value on main thread
+        DMProgressHUD *hud = [DMProgressHUD progressHUDForView:self.view];
+        hud.progress = progress;
+    });
 }
 
 @end
