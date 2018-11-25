@@ -13,6 +13,8 @@
 
 #import "DMProgressHUD.h"
 
+#import <PPNetWorking/PPNetWorking.h>
+
 
 #define WinSize [UIScreen mainScreen].bounds.size
 #define BaseColor [UIColor colorWithRed:243.0f/255.0f green:110.0f/255.0f blue:31.0f/255.0f alpha:1.0f]
@@ -64,6 +66,16 @@
                 parameters:(NSDictionary *)parameters
                    success:(void (^)(NSURLSessionDataTask * _Nonnull task, id _Nullable responseObject))pp_success
                    failure:(void (^)(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error))pp_failure;
+
+/**
+ * PPNetWork发送POST请求
+ */
+- (void)PPFWnetworkPOSTWithUrl:(NSString *)urlString
+                    controller:(NSString *)controller
+                        action:(NSString *)action
+                    parameters:(NSDictionary *)parameters
+                       success:(void (^)(id responseObject))pp_success
+                       failure:(void (^)(id error))pp_failure;
 @end
 
 #pragma mark - UIButton(Create) interface
@@ -138,7 +150,6 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property (strong, nonatomic)UITextField * fileNameField;
 @property (strong, nonatomic)UIPickerView * fileTypePicker;
 @property (strong, nonatomic)UILabel * filemimetypeLbl;
-//@property (strong, nonatomic)UIButton * uploadButton;
 @property (strong, nonatomic)UIButton * uploadQiniuButton;
 
 //数据部分
@@ -243,15 +254,6 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.fileTypePicker.layer setBorderWidth:1.0f];
     [self.fileTypePicker.layer setBorderColor:BaseColor.CGColor];
     [self.fileTypePicker.layer setCornerRadius:10.0f];
-    
-//    self.uploadButton = [UIButton setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
-//                                                           center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.fileTypePicker.frame)+50)
-//                                                  backGroundColor:[UIColor whiteColor]
-//                                                            title:@"服务器上传文件"
-//                                                             font:[UIFont fontWithName:@"Arial" size:20.0f]
-//                                                       titleColor:BaseColor];
-//    [self.uploadButton addTarget:self action:@selector(uploadPress:) forControlEvents:UIControlEventTouchUpInside];
-//    [self.backView addSubview:self.uploadButton];
     
     self.uploadQiniuButton = [UIButton setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
                                                            center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.fileTypePicker.frame)+50)
@@ -665,9 +667,9 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     
     AFHTTPSessionManager *manager = [AFHTTPSessionManager manager];
     // 设置超时时间
-    [manager.requestSerializer willChangeValueForKey:@"timeoutInterval"];
-    manager.requestSerializer.timeoutInterval = 60.f;
-    [manager.requestSerializer didChangeValueForKey:@"timeoutInterval"];
+//    [manager.requestSerializer willChangeValueForKey:@"timeoutInterval"];
+//    manager.requestSerializer.timeoutInterval = 60.f;
+//    [manager.requestSerializer didChangeValueForKey:@"timeoutInterval"];
     //申明请求的数据类型设置
     manager.requestSerializer=[AFHTTPRequestSerializer serializer];
     //返回数据类型设置
@@ -696,6 +698,24 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 //        }
 //    }];
 
+}
+
+- (void)PPFWnetworkPOSTWithUrl:(NSString *)urlString
+                    controller:(NSString *)controller
+                        action:(NSString *)action
+                    parameters:(NSDictionary *)parameters
+                       success:(void (^)(id responseObject))pp_success
+                       failure:(void (^)(id error))pp_failure{
+    PPNetWorking * logoutNet = [[PPNetWorking alloc] init];
+    [logoutNet PostRequestWithUrlNetWork:urlString Controller:controller action:action parameter:parameters resultBlock:^(id resultValue) {
+        if (pp_success) {
+            pp_success(resultValue);
+        }
+    } errorBlock:^(id errorCode) {
+        if (pp_failure) {
+            pp_failure(errorCode);
+        }
+    }];
 }
 
 - (void)uploadFileUrl:(NSString *)urlString
@@ -969,6 +989,8 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 @property(strong, nonatomic)UITextField * mainTypeField;
 @property(strong, nonatomic)UITextView * wordsView;
+@property(strong, nonatomic)UISwitch * clickSwitch;
+@property(strong, nonatomic)UILabel * switchLbl;
 
 @property(strong, nonatomic)UITextField * wordField;
 
@@ -1096,6 +1118,20 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.wordsView.layer setCornerRadius:10.0f];
     [self.wordsView setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     
+    self.clickSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.wordsView.frame)+20, 120, 50)];
+    [self.clickSwitch setOn:NO];
+    [self.clickSwitch setOnTintColor:BaseColor];
+    [self.clickSwitch addTarget:self action:@selector(canClickPress:) forControlEvents:UIControlEventValueChanged];
+    [self.view addSubview:self.clickSwitch];
+    
+    self.switchLbl = [[UILabel alloc] initWithFrame:CGRectMake(CGRectGetMaxX(self.clickSwitch.frame)+20, 0, WinSize.width -CGRectGetMaxX(self.clickSwitch.frame) - 30 , 50)];
+    [self.switchLbl setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.switchLbl setTextColor:BaseColor];
+    [self.switchLbl setTextAlignment:NSTextAlignmentLeft];
+    [self.switchLbl setText:@"图片不可点击"];
+    [self.view addSubview:self.switchLbl];
+    [self.switchLbl setCenter:CGPointMake(CGRectGetMidX(self.switchLbl.frame), CGRectGetMidY(self.clickSwitch.frame))];
+    
     UIView * cancelView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, WinSize.width, 45)];
     [cancelView setBackgroundColor:[UIColor clearColor]];
     [cancelView.layer setMasksToBounds:YES];
@@ -1115,7 +1151,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     self.wordsView.inputAccessoryView = cancelView;
     
     UIButton * previewImageButton = [UIButton setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
-                                                    center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.wordsView.frame)+50)
+                                                    center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.clickSwitch.frame)+50)
                                            backGroundColor:[UIColor whiteColor]
                                                      title:@"预览图片文件"
                                                       font:[UIFont fontWithName:@"Arial" size:20.0f]
@@ -1129,6 +1165,16 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
     ImagePreviewViewController * imagePVC = [[ImagePreviewViewController alloc] initWithFilePath:filePath];
     [self presentViewController:imagePVC animated:YES completion:nil];
+}
+
+- (void)canClickPress:(id)sender{
+    if (self.clickSwitch.isOn == YES) {
+        [self.switchLbl setText:@"图片可点击"];
+    }
+    else
+    {
+        [self.switchLbl setText:@"图片不可点击"];
+    }
 }
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
@@ -1189,6 +1235,13 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.view addSubview:self.wordField];
 }
 
+- (BOOL)textFieldShouldReturn:(UITextField *)textField{
+    if (textField == self.wordField) {
+        [self.wordField resignFirstResponder];
+    }
+    return YES;
+}
+
 - (void)upLoadPress:(id)sender{
     [self qiniuUploadPress:nil];
 }
@@ -1246,20 +1299,47 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
     NSMutableDictionary * dic = [[NSMutableDictionary alloc] init];
     [dic setObject:self.name forKey:@"file_type"];
-    [netWork networkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
-        NSDictionary * result = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableContainers error:nil];
-        NSLog(@"%@",result);
-        NSDictionary * resultData = [result objectForKey:@"data"];
-        [self dismissProgress];
-        [self showProgressStatusSuccess:@"获取成功"];
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
-        });
-    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+    
+    [netWork PPFWnetworkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:dic success:^(id responseObject) {
+        if ([[responseObject objectForKey:@"is_success"] intValue] == 1) {
+            NSDictionary * resultData = [responseObject objectForKey:@"data"];
+            NSLog(@"%@",resultData);
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self dismissProgress];
+                [self showProgressStatusSuccess:@"获取成功" completion:^{
+                   [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
+                }];
+            });
+        }
+        else
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self dismissProgress];
+                [self showProgressStatusFail:@"获取失败"];
+            });
+        }
+    } failure:^(id error) {
         NSLog(@"%@",error);
-        [self dismissProgress];
-        [self showProgressStatusFail:@"获取失败"];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self dismissProgress];
+            [self showProgressStatusFail:@"获取失败"];
+        });
     }];
+//    [netWork networkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
+//        NSDictionary * result = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableContainers error:nil];
+//        NSLog(@"%@",result);
+//        NSDictionary * resultData = [result objectForKey:@"data"];
+//        [self dismissProgress];
+//        [self showProgressStatusSuccess:@"获取成功"];
+//        dispatch_async(dispatch_get_main_queue(), ^{
+//            [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
+//        });
+//    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
+//        NSLog(@"%@",error);
+//        [self dismissProgress];
+//        [self showProgressStatusFail:@"获取失败"];
+//    }];
 }
 
 
@@ -1286,7 +1366,15 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         [paramsDic setObject:self.fileName forKey:@"fname"];
         [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
         [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+        if (self.clickSwitch.isOn == YES) {
+            [paramsDic setObject:@"1" forKey:@"x:click"];
+        }
+        else
+        {
+            [paramsDic setObject:@"0" forKey:@"x:click"];
+        }
         
+
 //        paramsDic = @{@"fname":self.fileName,@"x:maintype":self.mainTypeField.text,@"x:words":self.wordsView.text,@"x:filebucket":self.bucket,@"x:mimeType":self.mimeType};
         
     }
@@ -1317,11 +1405,11 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         {
             NSLog(@"请求成功");
             [self dismissProgress];
-            [self showProgressStatusSuccess:@"上传成功"];
+            [self showProgressStatusSuccess:@"上传成功" completion:nil];
         }
         else{
             NSLog(@"失败");
-            [self showProgressStatusSuccess:@"上传失败"];
+            [self showProgressStatusSuccess:@"上传失败" completion:nil];
             //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
         }
         NSLog(@"info ===== %@", info);
@@ -1362,7 +1450,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     hud.tag = 2222;
 }
 
-- (void)showProgressStatusSuccess:(NSString *)text {
+- (void)showProgressStatusSuccess:(NSString *)text completion:(void(^)(void))completion{
     DMProgressHUD *hud = [DMProgressHUD showHUDAddedTo:self.view animation:DMProgressHUDAnimationIncrement maskType:DMProgressHUDMaskTypeClear];
     hud.mode = DMProgressHUDModeStatus;
     hud.statusType = DMProgressHUDStatusTypeSuccess;
@@ -1370,6 +1458,9 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     hud.text = text;
     
     [hud dismissAfter:1.0 completion:^{
+        if (completion) {
+            completion();
+        }
     }];
 }
 

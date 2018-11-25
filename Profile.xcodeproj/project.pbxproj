@@ -35,6 +35,7 @@
 		0736C8EE21A11463006CA4ED /* ProfileUITests.m in Sources */ = {isa = PBXBuildFile; fileRef = 0736C8ED21A11463006CA4ED /* ProfileUITests.m */; };
 		0743EAAD21A91B0200ABBAAF /* DMProgressImgs.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 0743EAAB21A91B0200ABBAAF /* DMProgressImgs.bundle */; };
 		0743EAAE21A91B0200ABBAAF /* DMProgressHUD.m in Sources */ = {isa = PBXBuildFile; fileRef = 0743EAAC21A91B0200ABBAAF /* DMProgressHUD.m */; };
+		0743EAB021AAEDD600ABBAAF /* PPNetWorking.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0743EAAF21AAEDD600ABBAAF /* PPNetWorking.framework */; };
 		07FE616721A152CA004D02F8 /* AFURLResponseSerialization.m in Sources */ = {isa = PBXBuildFile; fileRef = 07FE615D21A152CA004D02F8 /* AFURLResponseSerialization.m */; };
 		07FE616821A152CA004D02F8 /* AFHTTPSessionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 07FE615E21A152CA004D02F8 /* AFHTTPSessionManager.m */; };
 		07FE616921A152CA004D02F8 /* AFURLSessionManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 07FE616021A152CA004D02F8 /* AFURLSessionManager.m */; };
@@ -125,6 +126,7 @@
 		0743EAAA21A91B0200ABBAAF /* DMProgressHUD.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DMProgressHUD.h; sourceTree = "<group>"; };
 		0743EAAB21A91B0200ABBAAF /* DMProgressImgs.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = DMProgressImgs.bundle; sourceTree = "<group>"; };
 		0743EAAC21A91B0200ABBAAF /* DMProgressHUD.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DMProgressHUD.m; sourceTree = "<group>"; };
+		0743EAAF21AAEDD600ABBAAF /* PPNetWorking.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = PPNetWorking.framework; sourceTree = "<group>"; };
 		07FE615921A152CA004D02F8 /* AFSecurityPolicy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AFSecurityPolicy.h; sourceTree = "<group>"; };
 		07FE615A21A152CA004D02F8 /* AFNetworkReachabilityManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AFNetworkReachabilityManager.h; sourceTree = "<group>"; };
 		07FE615B21A152CA004D02F8 /* AFURLSessionManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AFURLSessionManager.h; sourceTree = "<group>"; };
@@ -148,6 +150,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0743EAB021AAEDD600ABBAAF /* PPNetWorking.framework in Frameworks */,
 				07FE617121A156CF004D02F8 /* MobileCoreServices.framework in Frameworks */,
 				07FE616F21A156C5004D02F8 /* SystemConfiguration.framework in Frameworks */,
 			);
@@ -289,6 +292,7 @@
 		0736C8C821A11461006CA4ED /* Profile */ = {
 			isa = PBXGroup;
 			children = (
+				0743EAAF21AAEDD600ABBAAF /* PPNetWorking.framework */,
 				0743EAA921A91B0200ABBAAF /* DMProgressHUD */,
 				0723FF6221A2DFF700572E58 /* QiniuSDK */,
 				07FE615821A152CA004D02F8 /* AFNetworking */,
@@ -681,6 +685,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Profile",
+				);
 				INFOPLIST_FILE = Profile/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -698,6 +706,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Profile",
+				);
 				INFOPLIST_FILE = Profile/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
