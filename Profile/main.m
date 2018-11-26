@@ -987,12 +987,20 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property(strong, nonatomic)UILabel * fileNameLbl;
 @property(strong, nonatomic)UILabel * mimeTypeLbl;
 
+//上传图片
 @property(strong, nonatomic)UITextField * mainTypeField;
 @property(strong, nonatomic)UITextView * wordsView;
 @property(strong, nonatomic)UISwitch * clickSwitch;
 @property(strong, nonatomic)UILabel * switchLbl;
 
+//上传音频
 @property(strong, nonatomic)UITextField * wordField;
+
+//上传视频
+@property(strong, nonatomic)UITextField * videoCategoryField;//视频类型名称，如《小猪佩奇》
+@property(strong, nonatomic)UITextField * videoAlbumnameField;//视频名称,如《小猪佩奇之猪爸爸减肥》
+@property(strong, nonatomic)UITextField * videoQuarterField;//视频属于第几季
+@property(strong, nonatomic)UITextField * videoOrderField;//视频属于第几集
 
 @end
 
@@ -1083,7 +1091,8 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         [self createUploadAudioView];
     }
     else if([self.name isEqualToString:@"video"]) {
-
+        self.bucket = @"greattalkvideo";
+        [self createUploadVideoView];
     }
     else if([self.name isEqualToString:@"other"]) {
 
@@ -1182,6 +1191,11 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.wordsView resignFirstResponder];
     [self.wordField resignFirstResponder];
     [self.mainTypeField resignFirstResponder];
+    
+    [self.videoCategoryField resignFirstResponder];
+    [self.videoAlbumnameField resignFirstResponder];
+    [self.videoOrderField resignFirstResponder];
+    [self.videoQuarterField resignFirstResponder];
 }
 
 - (void)textViewDidBeginEditing:(UITextView *)textView
@@ -1242,6 +1256,150 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     return YES;
 }
 
+- (void)createUploadVideoView{
+//    videoCategoryField;//视频类型名称，如《小猪佩奇》
+//    videoAlbumnameField;//视频名称,如《小猪佩奇之猪爸爸减肥》
+//    videoQuarterField;//视频属于第几季
+//    videoOrderField
+    
+    self.videoCategoryField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mimeTypeLbl.frame)+20, WinSize.width - 20, 50)];
+    [self.videoCategoryField setTextColor:BaseColor];
+    [self.videoCategoryField setTextAlignment:NSTextAlignmentLeft];
+    [self.videoCategoryField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.videoCategoryField setBackgroundColor:[UIColor clearColor]];
+    [self.videoCategoryField setDelegate:self];
+    [self.videoCategoryField setPlaceholder:@"输入视频总名称，如：《小猪佩奇》"];
+    [self.videoCategoryField.layer setMasksToBounds:YES];
+    [self.videoCategoryField.layer setBorderColor:BaseColor.CGColor];
+    [self.videoCategoryField.layer setBorderWidth:1.0f];
+    [self.videoCategoryField.layer setCornerRadius:10.0f];
+    [self.videoCategoryField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [self.view addSubview:self.videoCategoryField];
+    
+    self.videoAlbumnameField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoCategoryField.frame)+20, WinSize.width - 20, 50)];
+    [self.videoAlbumnameField setTextColor:BaseColor];
+    [self.videoAlbumnameField setTextAlignment:NSTextAlignmentLeft];
+    [self.videoAlbumnameField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.videoAlbumnameField setBackgroundColor:[UIColor clearColor]];
+    [self.videoAlbumnameField setDelegate:self];
+    [self.videoAlbumnameField setPlaceholder:@"视频名称，如：《小猪佩奇之猪爸爸减肥》"];
+    [self.videoAlbumnameField.layer setMasksToBounds:YES];
+    [self.videoAlbumnameField.layer setBorderColor:BaseColor.CGColor];
+    [self.videoAlbumnameField.layer setBorderWidth:1.0f];
+    [self.videoAlbumnameField.layer setCornerRadius:10.0f];
+    [self.videoAlbumnameField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [self.view addSubview:self.videoAlbumnameField];
+    
+    self.videoQuarterField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoAlbumnameField.frame)+20, WinSize.width - 20, 50)];
+    [self.videoQuarterField setTextColor:BaseColor];
+    [self.videoQuarterField setTextAlignment:NSTextAlignmentLeft];
+    [self.videoQuarterField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.videoQuarterField setBackgroundColor:[UIColor clearColor]];
+    [self.videoQuarterField setDelegate:self];
+    [self.videoQuarterField setPlaceholder:@"视频属于第几季"];
+    [self.videoQuarterField.layer setMasksToBounds:YES];
+    [self.videoQuarterField.layer setBorderColor:BaseColor.CGColor];
+    [self.videoQuarterField.layer setBorderWidth:1.0f];
+    [self.videoQuarterField.layer setCornerRadius:10.0f];
+    [self.videoQuarterField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [self.view addSubview:self.videoQuarterField];
+    
+    self.videoOrderField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoQuarterField.frame)+20, WinSize.width - 20, 50)];
+    [self.videoOrderField setTextColor:BaseColor];
+    [self.videoOrderField setTextAlignment:NSTextAlignmentLeft];
+    [self.videoOrderField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.videoOrderField setBackgroundColor:[UIColor clearColor]];
+    [self.videoOrderField setDelegate:self];
+    [self.videoOrderField setPlaceholder:@"视频是第几集"];
+    [self.videoOrderField.layer setMasksToBounds:YES];
+    [self.videoOrderField.layer setBorderColor:BaseColor.CGColor];
+    [self.videoOrderField.layer setBorderWidth:1.0f];
+    [self.videoOrderField.layer setCornerRadius:10.0f];
+    [self.videoOrderField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [self.view addSubview:self.videoOrderField];
+}
+
+- (void)textFieldDidBeginEditing:(UITextField *)textField
+{
+    if (textField == self.videoAlbumnameField) {
+        [UIView animateWithDuration:0.3 animations:^{
+            CGRect frame = self.view.frame;
+            frame.origin.y = frame.origin.y - 70;
+            self.view.frame = frame;
+        }];
+    }
+    if (textField == self.videoQuarterField) {
+        [UIView animateWithDuration:0.3 animations:^{
+            CGRect frame = self.view.frame;
+            frame.origin.y = frame.origin.y - 100;
+            self.view.frame = frame;
+        }];
+    }
+    if (textField == self.videoOrderField) {
+        [UIView animateWithDuration:0.3 animations:^{
+            CGRect frame = self.view.frame;
+            frame.origin.y = frame.origin.y - 120;
+            self.view.frame = frame;
+        }];
+    }
+}
+
+- (void)textFieldDidEndEditing:(UITextField *)textField
+{
+    if (textField == self.videoAlbumnameField) {
+        [UIView animateWithDuration:0.3 animations:^{
+            CGRect frame = self.view.frame;
+            frame.origin.y = frame.origin.y + 70;
+            self.view.frame = frame;
+        } completion:^(BOOL finished) {
+            
+        }];
+    }
+    if (textField == self.videoQuarterField) {
+        [UIView animateWithDuration:0.3 animations:^{
+            CGRect frame = self.view.frame;
+            frame.origin.y = frame.origin.y + 100;
+            self.view.frame = frame;
+        }];
+    }
+    if (textField == self.videoOrderField) {
+        [UIView animateWithDuration:0.3 animations:^{
+            CGRect frame = self.view.frame;
+            frame.origin.y = frame.origin.y + 120;
+            self.view.frame = frame;
+        }];
+    }
+}
+
+- (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string{
+    if (textField == self.videoQuarterField) {
+        return [self validateNumber:string];
+    }
+    if (textField == self.videoOrderField) {
+        return [self validateNumber:string];
+    }
+    return YES;
+}
+
+/**
+ * 判断textField输入数字
+ */
+- (BOOL)validateNumber:(NSString*)number {
+    BOOL res = YES;
+    NSCharacterSet* tmpSet = [NSCharacterSet characterSetWithCharactersInString:@"0123456789"];
+    int i = 0;
+    while (i < number.length) {
+        NSString * string = [number substringWithRange:NSMakeRange(i, 1)];
+        NSRange range = [string rangeOfCharacterFromSet:tmpSet];
+        if (range.length == 0) {
+            res = NO;
+            break;
+        }
+        i++;
+    }
+    return res;
+}
+
 - (void)upLoadPress:(id)sender{
     [self qiniuUploadPress:nil];
 }
@@ -1257,6 +1415,16 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
  * word 对应的单词
  * fname 对应的文件名
  * filebucket 文件所在存储空间
+ */
+/**
+ * category 视频的名称类别，比如《小猪佩奇》、《海绵宝宝》
+ * albumname 视频对应的名称，比如《猪爸爸减肥》
+ * quarter 视频属于第几季
+ * order 视频属于第几集
+ * fname 对应的文件名
+ * filebucket 文件所在存储空间
+ * mimetype 文件扩展类型
+ * length  视频时长
  */
 #pragma mark - Qiniu上传事件
 - (void)qiniuUploadPress:(id)sender{
@@ -1385,7 +1553,21 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
     }
     else if([self.name isEqualToString:@"video"]) {
-        
+        [paramsDic setObject:self.fileName forKey:@"fname"];
+        [paramsDic setObject:self.wordsView.text forKey:@"x:category"];
+        [paramsDic setObject:self.wordsView.text forKey:@"x:albumname"];
+        [paramsDic setObject:self.wordsView.text forKey:@"x:quarter"];
+        [paramsDic setObject:self.wordsView.text forKey:@"x:order"];
+        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
+        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+        [paramsDic setObject:self.wordsView.text forKey:@"x:length"];
+        if (self.clickSwitch.isOn == YES) {
+            [paramsDic setObject:@"1" forKey:@"x:click"];
+        }
+        else
+        {
+            [paramsDic setObject:@"0" forKey:@"x:click"];
+        }
     }
     else if([self.name isEqualToString:@"other"]) {
         
