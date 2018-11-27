@@ -988,11 +988,15 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property(strong, nonatomic)UILabel * fileNameLbl;
 @property(strong, nonatomic)UILabel * mimeTypeLbl;
 
+@property(strong, nonatomic)UISwitch * deleteSwitch;
+@property(strong, nonatomic)UILabel * deleteswitchLbl;
+
 //上传图片
 @property(strong, nonatomic)UITextField * mainTypeField;
 @property(strong, nonatomic)UITextView * wordsView;
 @property(strong, nonatomic)UISwitch * clickSwitch;
 @property(strong, nonatomic)UILabel * switchLbl;
+
 
 //上传音频
 @property(strong, nonatomic)UITextField * wordField;
@@ -1084,6 +1088,19 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.mimeTypeLbl.layer setCornerRadius:10.0f];
     [self.mimeTypeLbl setText:self.mimeType];
 
+    self.deleteSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mimeTypeLbl.frame)+20, 120, 50)];
+    [self.deleteSwitch setOn:YES];
+    [self.deleteSwitch setOnTintColor:BaseColor];
+    [self.deleteSwitch addTarget:self action:@selector(deleteSwitchPress:) forControlEvents:UIControlEventValueChanged];
+    [self.view addSubview:self.deleteSwitch];
+    
+    self.deleteswitchLbl = [[UILabel alloc] initWithFrame:CGRectMake(CGRectGetMaxX(self.deleteSwitch.frame)+20, 0, WinSize.width -CGRectGetMaxX(self.clickSwitch.frame) - 30 , 50)];
+    [self.deleteswitchLbl setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.deleteswitchLbl setTextColor:BaseColor];
+    [self.deleteswitchLbl setTextAlignment:NSTextAlignmentLeft];
+    [self.deleteswitchLbl setText:@"上传成功后删除文件"];
+    [self.view addSubview:self.deleteswitchLbl];
+    [self.deleteswitchLbl setCenter:CGPointMake(CGRectGetMidX(self.deleteswitchLbl.frame), CGRectGetMidY(self.deleteSwitch.frame))];
     
     if ([self.name isEqualToString:@"image"]) {
         [self createUploadPicView];
@@ -1100,8 +1117,18 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     }
 }
 
+- (void)deleteSwitchPress:(id)sender{
+    if (self.deleteSwitch.isOn == YES) {
+        [self.deleteswitchLbl setText:@"上传成功后删除文件"];
+    }
+    else
+    {
+        [self.deleteswitchLbl setText:@"上传成功后不删除文件"];
+    }
+}
+
 - (void)createUploadPicView{
-    self.mainTypeField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mimeTypeLbl.frame)+20, WinSize.width - 20, 50)];
+    self.mainTypeField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.deleteswitchLbl.frame)+20, WinSize.width - 20, 50)];
     [self.mainTypeField setTextColor:BaseColor];
     [self.mainTypeField setTextAlignment:NSTextAlignmentLeft];
     [self.mainTypeField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
@@ -1235,7 +1262,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 }
 
 - (void)createUploadAudioView{
-    self.wordField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mimeTypeLbl.frame)+20, WinSize.width - 20, 50)];
+    self.wordField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.deleteswitchLbl.frame)+20, WinSize.width - 20, 50)];
     [self.wordField setTextColor:BaseColor];
     [self.wordField setTextAlignment:NSTextAlignmentLeft];
     [self.wordField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
@@ -1263,7 +1290,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 //    videoQuarterField;//视频属于第几季
 //    videoOrderField
     
-    self.videoCategoryField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mimeTypeLbl.frame)+20, WinSize.width - 20, 50)];
+    self.videoCategoryField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.deleteswitchLbl.frame)+20, WinSize.width - 20, 50)];
     [self.videoCategoryField setTextColor:BaseColor];
     [self.videoCategoryField setTextAlignment:NSTextAlignmentLeft];
     [self.videoCategoryField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
@@ -1620,6 +1647,9 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             NSLog(@"请求成功");
             [self dismissProgress];
             [self showProgressStatusSuccess:@"上传成功" completion:nil];
+            if (self.deleteSwitch.isOn == YES) {
+                [self deleteFile:filePath];
+            }
         }
         else{
             NSLog(@"失败");
@@ -1629,6 +1659,18 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         NSLog(@"info ===== %@", info);
         NSLog(@"resp ===== %@", resp);
     } option:opt];
+}
+
+- (BOOL)deleteFile:(NSString *)path{
+    NSFileManager *fileManage = [NSFileManager defaultManager];
+    if ([fileManage fileExistsAtPath:path]) {
+        // 删除
+        BOOL isSuccess = [fileManage removeItemAtPath:path error:nil];
+        return isSuccess ? YES : NO;
+//        NSLog(@"%@",isSuccess ? @"删除成功" : @"删除失败");
+    }else{
+        return NO;
+    }
 }
 
 - (void)NSURLSessionGetMIMETypeWithPath:(NSString *)path mimeType:(nullable void(^)(NSString * MIMEType))mimeType{
