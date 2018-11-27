@@ -13,14 +13,15 @@
 
 #import "DMProgressHUD.h"
 
+#import <AVFoundation/AVFoundation.h>
 #import <PPNetWorking/PPNetWorking.h>
 
 
 #define WinSize [UIScreen mainScreen].bounds.size
 #define BaseColor [UIColor colorWithRed:243.0f/255.0f green:110.0f/255.0f blue:31.0f/255.0f alpha:1.0f]
-//#define UrlString @"http://localhost/api"
 
-#define UrlString @"http://media.powersenz.com/greattalk/public/api"
+#define UrlString @"http://localhost/api"
+//#define UrlString @"http://media.powersenz.com/greattalk/public/api"
 
 #define StatusBar_Height [[UIApplication sharedApplication] statusBarFrame].size.height
 
@@ -1510,6 +1511,14 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 //    }];
 }
 
+- (NSDictionary *)getVideoInfoWithSourcePath:(NSString *)path{
+    AVURLAsset * asset = [AVURLAsset assetWithURL:[NSURL fileURLWithPath:path]];
+    CMTime   time = [asset duration];
+    int seconds = ceil(time.value/time.timescale);
+    NSInteger   fileSize = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil].fileSize;
+    return @{@"size" : @(fileSize),
+             @"duration" : @(seconds)};
+}
 
 - (void)uploadFileToQinniuWithUpToken:(NSString *)qiniu_token{
     [self showProgressTypeSector:@"上传文件..."];
@@ -1522,6 +1531,8 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     NSString * key = self.fileName;
     NSString *tmpDir = NSTemporaryDirectory();
     NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    
+    
     
     [self NSURLSessionGetMIMETypeWithPath:filePath mimeType:^(NSString *MIMEType) {
         self.mimeType = MIMEType;
@@ -1539,7 +1550,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         }
         else
         {
-            [paramsDic setObject:@"0" forKey:@"x:click"];
+            [paramsDic setObject:@"00" forKey:@"x:click"];
         }
         
 
@@ -1554,20 +1565,13 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     }
     else if([self.name isEqualToString:@"video"]) {
         [paramsDic setObject:self.fileName forKey:@"fname"];
-        [paramsDic setObject:self.wordsView.text forKey:@"x:category"];
-        [paramsDic setObject:self.wordsView.text forKey:@"x:albumname"];
-        [paramsDic setObject:self.wordsView.text forKey:@"x:quarter"];
-        [paramsDic setObject:self.wordsView.text forKey:@"x:order"];
+        [paramsDic setObject:self.videoCategoryField.text forKey:@"x:category"];
+        [paramsDic setObject:self.videoAlbumnameField.text forKey:@"x:albumname"];
+        [paramsDic setObject:self.videoQuarterField.text forKey:@"x:quarter"];
+        [paramsDic setObject:self.videoOrderField.text forKey:@"x:order"];
         [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
         [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
-        [paramsDic setObject:self.wordsView.text forKey:@"x:length"];
-        if (self.clickSwitch.isOn == YES) {
-            [paramsDic setObject:@"1" forKey:@"x:click"];
-        }
-        else
-        {
-            [paramsDic setObject:@"0" forKey:@"x:click"];
-        }
+        [paramsDic setObject:[NSString stringWithFormat:@"%@",[[self getVideoInfoWithSourcePath:filePath] objectForKey:@"duration"]] forKey:@"x:length"];
     }
     else if([self.name isEqualToString:@"other"]) {
         
