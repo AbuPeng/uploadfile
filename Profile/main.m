@@ -20,8 +20,8 @@
 #define WinSize [UIScreen mainScreen].bounds.size
 #define BaseColor [UIColor colorWithRed:243.0f/255.0f green:110.0f/255.0f blue:31.0f/255.0f alpha:1.0f]
 
-#define UrlString @"http://localhost/api"
-//#define UrlString @"http://media.powersenz.com/greattalk/public/api"
+//#define UrlString @"http://localhost/api"
+#define UrlString @"http://media.powersenz.com/greattalk/public/api"
 
 #define StatusBar_Height [[UIApplication sharedApplication] statusBarFrame].size.height
 
@@ -1458,7 +1458,38 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         }
     }
     else if([self.name isEqualToString:@"video"]) {
-        
+        if ([self.videoCategoryField.text isEqualToString:@""] || self.videoCategoryField.text == nil) {
+            UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入视频总名称" message:nil preferredStyle:UIAlertControllerStyleAlert];
+            UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+                
+            }];
+            [alertC addAction:alertA];
+            [self presentViewController:alertC animated:YES completion:nil];
+        }
+        if ([self.videoAlbumnameField.text isEqualToString:@""] || self.videoAlbumnameField.text == nil) {
+            UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入视频名称" message:nil preferredStyle:UIAlertControllerStyleAlert];
+            UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+                
+            }];
+            [alertC addAction:alertA];
+            [self presentViewController:alertC animated:YES completion:nil];
+        }
+        if ([self.videoQuarterField.text isEqualToString:@""] || self.videoQuarterField.text == nil) {
+            UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入视频是第几季" message:nil preferredStyle:UIAlertControllerStyleAlert];
+            UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+                
+            }];
+            [alertC addAction:alertA];
+            [self presentViewController:alertC animated:YES completion:nil];
+        }
+        if ([self.videoOrderField.text isEqualToString:@""] || self.videoOrderField.text == nil) {
+            UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入视频第几集" message:nil preferredStyle:UIAlertControllerStyleAlert];
+            UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+                
+            }];
+            [alertC addAction:alertA];
+            [self presentViewController:alertC animated:YES completion:nil];
+        }
     }
     else if([self.name isEqualToString:@"other"]) {
         
@@ -1537,7 +1568,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self NSURLSessionGetMIMETypeWithPath:filePath mimeType:^(NSString *MIMEType) {
         self.mimeType = MIMEType;
     }];
-    
+
     NSMutableDictionary * paramsDic = [NSMutableDictionary new];
     if ([self.name isEqualToString:@"image"]) {
         [paramsDic setObject:self.mainTypeField.text forKey:@"x:maintype"];
@@ -1552,10 +1583,6 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         {
             [paramsDic setObject:@"00" forKey:@"x:click"];
         }
-        
-
-//        paramsDic = @{@"fname":self.fileName,@"x:maintype":self.mainTypeField.text,@"x:words":self.wordsView.text,@"x:filebucket":self.bucket,@"x:mimeType":self.mimeType};
-        
     }
     else if([self.name isEqualToString:@"audio"]) {
         [paramsDic setObject:self.wordField.text forKey:@"x:word"];
@@ -1572,6 +1599,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
         [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
         [paramsDic setObject:[NSString stringWithFormat:@"%@",[[self getVideoInfoWithSourcePath:filePath] objectForKey:@"duration"]] forKey:@"x:length"];
+
     }
     else if([self.name isEqualToString:@"other"]) {
         
@@ -1580,7 +1608,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     NSLog(@"params ----- %@",paramsDic);
 
     QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
-    // params: @{@"fname":self.fileName, @"x:filename":[NSString stringWithFormat:@"%@",self.fileName] }
+
     QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:self.mimeType progressHandler:^(NSString *key, float percent) {
         NSLog(@"percent ----- %f",percent);
         [self changeProgress:percent];
