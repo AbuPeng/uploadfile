@@ -1006,6 +1006,8 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property(strong, nonatomic)UITextField * videoAlbumnameField;//视频名称,如《小猪佩奇之猪爸爸减肥》
 @property(strong, nonatomic)UITextField * videoQuarterField;//视频属于第几季
 @property(strong, nonatomic)UITextField * videoOrderField;//视频属于第几集
+@property(strong, nonatomic)UIImageView * video_thumb_image;//视频的缩略图
+@property(strong, nonatomic)NSString * thumb_image_name;//缩略图名称
 
 @end
 
@@ -1057,6 +1059,9 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 }
 
 - (void)backButtonPress:(id)sender{
+    if ([self.name isEqualToString:@"video"]) {
+        [self deleteFileWithName:self.thumb_image_name];
+    }
     [self.navigationController popViewControllerAnimated:YES];
 }
 
@@ -1345,6 +1350,68 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.videoOrderField.layer setCornerRadius:10.0f];
     [self.videoOrderField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     [self.view addSubview:self.videoOrderField];
+    
+    self.video_thumb_image = [[UIImageView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoOrderField.frame)+20, WinSize.width-20, 220)];
+    [self.video_thumb_image setContentMode:UIViewContentModeScaleAspectFill];
+    [self.video_thumb_image setClipsToBounds:YES];
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    UIImage * thumb_image = [self getScreenShotImageFromVideoPath:filePath];
+    [self.video_thumb_image setImage:thumb_image];
+    [self.view addSubview:self.video_thumb_image];
+    
+    self.thumb_image_name = [NSString stringWithFormat:@"%@.jpeg",[[filePath lastPathComponent] stringByDeletingPathExtension]];
+    NSLog(@"%@",self.thumb_image_name);
+    [self saveImage:thumb_image imageName:self.thumb_image_name];
+}
+
+
+- (void)saveImage:(UIImage *)image imageName:(NSString *)imageName {
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:
+                          [NSString stringWithFormat:@"%@", imageName]];  // 保存文件的名称
+    BOOL result =[UIImageJPEGRepresentation(image, 1.0f) writeToFile:filePath atomically:YES]; // 保存成功会返回YES
+    if (result == YES) {
+        NSLog(@"保存成功");
+    }
+    else
+    {
+        NSLog(@"保存失败");
+    }
+}
+
+/**
+ *  获取视频的缩略图方法
+ *
+ *  @param filePath 视频的本地路径
+ *
+ *  @return 视频截图
+ */
+- (UIImage *)getScreenShotImageFromVideoPath:(NSString *)filePath{
+    
+    UIImage *shotImage;
+    //视频路径URL
+    NSURL *fileURL = [NSURL fileURLWithPath:filePath];
+    
+    AVURLAsset *asset = [[AVURLAsset alloc] initWithURL:fileURL options:nil];
+    
+    AVAssetImageGenerator *gen = [[AVAssetImageGenerator alloc] initWithAsset:asset];
+    
+    gen.appliesPreferredTrackTransform = YES;
+    
+    CMTime time = CMTimeMakeWithSeconds(0.0, 600);
+    
+    NSError *error = nil;
+    
+    CMTime actualTime;
+    
+    CGImageRef image = [gen copyCGImageAtTime:time actualTime:&actualTime error:&error];
+    
+    shotImage = [[UIImage alloc] initWithCGImage:image];
+    
+    CGImageRelease(image);
+
+    return shotImage;
 }
 
 - (void)textFieldDidBeginEditing:(UITextField *)textField
@@ -1648,7 +1715,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [self dismissProgress];
             [self showProgressStatusSuccess:@"上传成功" completion:nil];
             if (self.deleteSwitch.isOn == YES) {
-                [self deleteFile:filePath];
+                [self deleteFileWithPath:filePath];
             }
         }
         else{
@@ -1661,7 +1728,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     } option:opt];
 }
 
-- (BOOL)deleteFile:(NSString *)path{
+- (BOOL)deleteFileWithPath:(NSString *)path{
     NSFileManager *fileManage = [NSFileManager defaultManager];
     if ([fileManage fileExistsAtPath:path]) {
         // 删除
@@ -1683,6 +1750,137 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         }
     }];
     [dataTask resume];
+}
+
+- (void)videoThumbUpload{
+    [self showProgressLoadingTypeCircle:@"获取上传信息！"];
+    PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
+    NSMutableDictionary * dic = [[NSMutableDictionary alloc] init];
+    [dic setObject:self.name forKey:@"file_type"];
+    
+    [netWork PPFWnetworkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:dic success:^(id responseObject) {
+        if ([[responseObject objectForKey:@"is_success"] intValue] == 1) {
+            NSDictionary * resultData = [responseObject objectForKey:@"data"];
+            NSLog(@"%@",resultData);
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self dismissProgress];
+                [self showProgressStatusSuccess:@"获取成功" completion:^{
+                    [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
+                }];
+            });
+        }
+        else
+        {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self dismissProgress];
+                [self showProgressStatusFail:@"获取失败"];
+            });
+        }
+    } failure:^(id error) {
+        NSLog(@"%@",error);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self dismissProgress];
+            [self showProgressStatusFail:@"获取失败"];
+        });
+    }];
+}
+
+- (void)uploadVideoThumb:(NSString *)thumbPath ToQinniuWithUpToken:(NSString *)qiniu_token{
+    [self showProgressTypeSector:@"上传文件..."];
+    //华南
+    QNConfiguration *config = [QNConfiguration build:^(QNConfigurationBuilder *builder) {
+        builder.zone = [QNFixedZone zone2];
+    }];
+    //重用uploadManager。一般地，只需要创建一个uploadManager对象
+    NSString * token = qiniu_token;//从服务端SDK获取
+    NSString * key = thumbPath;
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    
+    
+    
+    [self NSURLSessionGetMIMETypeWithPath:filePath mimeType:^(NSString *MIMEType) {
+        self.mimeType = MIMEType;
+    }];
+    
+    NSMutableDictionary * paramsDic = [NSMutableDictionary new];
+    if ([self.name isEqualToString:@"image"]) {
+        [paramsDic setObject:self.mainTypeField.text forKey:@"x:maintype"];
+        [paramsDic setObject:self.wordsView.text forKey:@"x:words"];
+        [paramsDic setObject:self.fileName forKey:@"fname"];
+        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
+        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+        if (self.clickSwitch.isOn == YES) {
+            [paramsDic setObject:@"1" forKey:@"x:click"];
+        }
+        else
+        {
+            [paramsDic setObject:@"00" forKey:@"x:click"];
+        }
+    }
+    else if([self.name isEqualToString:@"audio"]) {
+        [paramsDic setObject:self.wordField.text forKey:@"x:word"];
+        [paramsDic setObject:self.fileName forKey:@"fname"];
+        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
+        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+    }
+    else if([self.name isEqualToString:@"video"]) {
+        [paramsDic setObject:self.fileName forKey:@"fname"];
+        [paramsDic setObject:self.videoCategoryField.text forKey:@"x:category"];
+        [paramsDic setObject:self.videoAlbumnameField.text forKey:@"x:albumname"];
+        [paramsDic setObject:self.videoQuarterField.text forKey:@"x:quarter"];
+        [paramsDic setObject:self.videoOrderField.text forKey:@"x:order"];
+        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
+        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+        [paramsDic setObject:[NSString stringWithFormat:@"%@",[[self getVideoInfoWithSourcePath:filePath] objectForKey:@"duration"]] forKey:@"x:length"];
+        
+    }
+    else if([self.name isEqualToString:@"other"]) {
+        
+    }
+    
+    NSLog(@"params ----- %@",paramsDic);
+    
+    QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
+    
+    QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:self.mimeType progressHandler:^(NSString *key, float percent) {
+        NSLog(@"percent ----- %f",percent);
+        [self changeProgress:percent];
+    } params:paramsDic checkCrc:YES cancellationSignal:nil];
+    
+    [upManager putFile:filePath key:key token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
+        if(info.ok)
+        {
+            NSLog(@"请求成功");
+            [self dismissProgress];
+            [self showProgressStatusSuccess:@"上传成功" completion:nil];
+            if (self.deleteSwitch.isOn == YES) {
+                [self deleteFileWithPath:filePath];
+            }
+        }
+        else{
+            NSLog(@"失败");
+            [self showProgressStatusSuccess:@"上传失败" completion:nil];
+            //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
+        }
+        NSLog(@"info ===== %@", info);
+        NSLog(@"resp ===== %@", resp);
+    } option:opt];
+}
+
+- (BOOL)deleteFileWithName:(NSString *)name{
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:name];
+    NSFileManager *fileManage = [NSFileManager defaultManager];
+    if ([fileManage fileExistsAtPath:filePath]) {
+        // 删除
+        BOOL isSuccess = [fileManage removeItemAtPath:filePath error:nil];
+        return isSuccess ? YES : NO;
+        //        NSLog(@"%@",isSuccess ? @"删除成功" : @"删除失败");
+    }else{
+        return NO;
+    }
 }
 
 #pragma mark - Show HUD
