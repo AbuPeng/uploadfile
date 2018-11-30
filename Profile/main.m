@@ -1540,6 +1540,8 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
+        
+        [self getUploadFileWithFileType:self.name];
     }
     else if([self.name isEqualToString:@"audio"]) {
         if ([self.wordField.text isEqualToString:@""] || self.wordField.text == nil) {
@@ -1550,6 +1552,8 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
+        
+        [self getUploadFileWithFileType:self.name];
     }
     else if([self.name isEqualToString:@"video"]) {
         if ([self.videoCategoryField.text isEqualToString:@""] || self.videoCategoryField.text == nil) {
@@ -1584,16 +1588,20 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
+        
+        [self videoThumbUpload];
     }
     else if([self.name isEqualToString:@"other"]) {
         
     }
     
+}
+
+- (void)getUploadFileWithFileType:(NSString *)filetype{
     [self showProgressLoadingTypeCircle:@"获取上传信息！"];
     PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
     NSMutableDictionary * dic = [[NSMutableDictionary alloc] init];
-    [dic setObject:self.name forKey:@"file_type"];
-    
+    [dic setObject:filetype forKey:@"file_type"];
     [netWork PPFWnetworkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:dic success:^(id responseObject) {
         if ([[responseObject objectForKey:@"is_success"] intValue] == 1) {
             NSDictionary * resultData = [responseObject objectForKey:@"data"];
@@ -1602,7 +1610,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self dismissProgress];
                 [self showProgressStatusSuccess:@"获取成功" completion:^{
-                   [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
+                    [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
                 }];
             });
         }
@@ -1620,20 +1628,6 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [self showProgressStatusFail:@"获取失败"];
         });
     }];
-//    [netWork networkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:dic success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
-//        NSDictionary * result = [NSJSONSerialization JSONObjectWithData:responseObject options:NSJSONReadingMutableContainers error:nil];
-//        NSLog(@"%@",result);
-//        NSDictionary * resultData = [result objectForKey:@"data"];
-//        [self dismissProgress];
-//        [self showProgressStatusSuccess:@"获取成功"];
-//        dispatch_async(dispatch_get_main_queue(), ^{
-//            [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
-//        });
-//    } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
-//        NSLog(@"%@",error);
-//        [self dismissProgress];
-//        [self showProgressStatusFail:@"获取失败"];
-//    }];
 }
 
 - (NSDictionary *)getVideoInfoWithSourcePath:(NSString *)path{
@@ -1686,6 +1680,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     }
     else if([self.name isEqualToString:@"video"]) {
         [paramsDic setObject:self.fileName forKey:@"fname"];
+        [paramsDic setObject:self.thumb_image_name forKey:@"x:thumbimage"];
         [paramsDic setObject:self.videoCategoryField.text forKey:@"x:category"];
         [paramsDic setObject:self.videoAlbumnameField.text forKey:@"x:albumname"];
         [paramsDic setObject:self.videoQuarterField.text forKey:@"x:quarter"];
@@ -1720,6 +1715,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         }
         else{
             NSLog(@"失败");
+            [self dismissProgress];
             [self showProgressStatusSuccess:@"上传失败" completion:nil];
             //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
         }
@@ -1756,7 +1752,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self showProgressLoadingTypeCircle:@"获取上传信息！"];
     PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
     NSMutableDictionary * dic = [[NSMutableDictionary alloc] init];
-    [dic setObject:self.name forKey:@"file_type"];
+    [dic setObject:@"video_thumb" forKey:@"file_type"];
     
     [netWork PPFWnetworkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:dic success:^(id responseObject) {
         if ([[responseObject objectForKey:@"is_success"] intValue] == 1) {
@@ -1766,7 +1762,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self dismissProgress];
                 [self showProgressStatusSuccess:@"获取成功" completion:^{
-                    [self uploadFileToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
+                    [self uploadVideoThumb:self.thumb_image_name ToQinniuWithUpToken:[NSString stringWithFormat:@"%@",[resultData objectForKey:@"up_token"]]];
                 }];
             });
         }
@@ -1796,77 +1792,53 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     NSString * token = qiniu_token;//从服务端SDK获取
     NSString * key = thumbPath;
     NSString *tmpDir = NSTemporaryDirectory();
-    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:key];
     
     
-    
+    __block NSString * filemimeType;
+    filemimeType  = @"";
     [self NSURLSessionGetMIMETypeWithPath:filePath mimeType:^(NSString *MIMEType) {
-        self.mimeType = MIMEType;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            filemimeType = MIMEType;
+            
+            NSMutableDictionary * paramsDic = [NSMutableDictionary new];
+            [paramsDic setObject:key forKey:@"fname"];
+            NSLog(@"params ----- %@",paramsDic);
+            
+            QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
+            
+            QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:filemimeType progressHandler:^(NSString *key, float percent) {
+                NSLog(@"percent ----- %f",percent);
+                [self changeProgress:percent];
+            } params:paramsDic checkCrc:YES cancellationSignal:nil];
+            
+            [upManager putFile:filePath key:key token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
+                if(info.ok)
+                {
+                    NSLog(@"请求成功");
+                    [self dismissProgress];
+                    [self showProgressStatusSuccess:@"视频缩略图上传成功" completion:nil];
+                    if (self.deleteSwitch.isOn == YES) {
+                        [self deleteFileWithPath:filePath];
+                    }
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [self getUploadFileWithFileType:self.name];
+                    });
+                }
+                else{
+                    NSLog(@"失败");
+                    [self dismissProgress];
+                    [self showProgressStatusSuccess:@"视频缩略图上传成功" completion:nil];
+                    //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
+                }
+                NSLog(@"info ===== %@", info);
+                NSLog(@"resp ===== %@", resp);
+            } option:opt];
+            
+        });
     }];
     
-    NSMutableDictionary * paramsDic = [NSMutableDictionary new];
-    if ([self.name isEqualToString:@"image"]) {
-        [paramsDic setObject:self.mainTypeField.text forKey:@"x:maintype"];
-        [paramsDic setObject:self.wordsView.text forKey:@"x:words"];
-        [paramsDic setObject:self.fileName forKey:@"fname"];
-        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
-        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
-        if (self.clickSwitch.isOn == YES) {
-            [paramsDic setObject:@"1" forKey:@"x:click"];
-        }
-        else
-        {
-            [paramsDic setObject:@"00" forKey:@"x:click"];
-        }
-    }
-    else if([self.name isEqualToString:@"audio"]) {
-        [paramsDic setObject:self.wordField.text forKey:@"x:word"];
-        [paramsDic setObject:self.fileName forKey:@"fname"];
-        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
-        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
-    }
-    else if([self.name isEqualToString:@"video"]) {
-        [paramsDic setObject:self.fileName forKey:@"fname"];
-        [paramsDic setObject:self.videoCategoryField.text forKey:@"x:category"];
-        [paramsDic setObject:self.videoAlbumnameField.text forKey:@"x:albumname"];
-        [paramsDic setObject:self.videoQuarterField.text forKey:@"x:quarter"];
-        [paramsDic setObject:self.videoOrderField.text forKey:@"x:order"];
-        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
-        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
-        [paramsDic setObject:[NSString stringWithFormat:@"%@",[[self getVideoInfoWithSourcePath:filePath] objectForKey:@"duration"]] forKey:@"x:length"];
-        
-    }
-    else if([self.name isEqualToString:@"other"]) {
-        
-    }
     
-    NSLog(@"params ----- %@",paramsDic);
-    
-    QNUploadManager *upManager = [[QNUploadManager alloc] initWithConfiguration:config];
-    
-    QNUploadOption *opt = [[QNUploadOption alloc] initWithMime:self.mimeType progressHandler:^(NSString *key, float percent) {
-        NSLog(@"percent ----- %f",percent);
-        [self changeProgress:percent];
-    } params:paramsDic checkCrc:YES cancellationSignal:nil];
-    
-    [upManager putFile:filePath key:key token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
-        if(info.ok)
-        {
-            NSLog(@"请求成功");
-            [self dismissProgress];
-            [self showProgressStatusSuccess:@"上传成功" completion:nil];
-            if (self.deleteSwitch.isOn == YES) {
-                [self deleteFileWithPath:filePath];
-            }
-        }
-        else{
-            NSLog(@"失败");
-            [self showProgressStatusSuccess:@"上传失败" completion:nil];
-            //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
-        }
-        NSLog(@"info ===== %@", info);
-        NSLog(@"resp ===== %@", resp);
-    } option:opt];
 }
 
 - (BOOL)deleteFileWithName:(NSString *)name{
