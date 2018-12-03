@@ -993,6 +993,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 //上传图片
 @property(strong, nonatomic)UITextField * mainTypeField;
+@property(strong, nonatomic)UITextField * booknameField;
 @property(strong, nonatomic)UITextView * wordsView;
 @property(strong, nonatomic)UISwitch * clickSwitch;
 @property(strong, nonatomic)UILabel * switchLbl;
@@ -1147,7 +1148,23 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.mainTypeField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     [self.view addSubview:self.mainTypeField];
     
-    self.wordsView = [[UITextView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mainTypeField.frame)+20, WinSize.width - 20, 150)];
+    self.booknameField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mainTypeField.frame)+20, WinSize.width - 20, 50)];
+    [self.booknameField setTextColor:BaseColor];
+    [self.booknameField setTextAlignment:NSTextAlignmentLeft];
+    [self.booknameField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.booknameField setBackgroundColor:[UIColor clearColor]];
+    [self.booknameField setDelegate:self];
+    [self.booknameField setPlaceholder:@"输入教材名称"];
+    [self.booknameField.layer setMasksToBounds:YES];
+    [self.booknameField.layer setBorderColor:BaseColor.CGColor];
+    [self.booknameField.layer setBorderWidth:1.0f];
+    [self.booknameField.layer setCornerRadius:10.0f];
+    [self.booknameField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [self.view addSubview:self.booknameField];
+    
+    [self.booknameField setText:@"phonics letter of the week"];
+    
+    self.wordsView = [[UITextView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.booknameField.frame)+20, WinSize.width - 20, 150)];
     [self.wordsView setTextColor:BaseColor];
     [self.wordsView setDelegate:self];
     [self.wordsView setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
@@ -1280,6 +1297,10 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.wordField.layer setBorderWidth:1.0f];
     [self.wordField.layer setCornerRadius:10.0f];
     [self.view addSubview:self.wordField];
+    
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    [self.wordField setText:[[filePath lastPathComponent] stringByDeletingPathExtension]];
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField{
@@ -1532,7 +1553,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
-        if ([self.wordsView.text isEqualToString:@""] || self.wordsView.text == nil) {
+        else if ([self.wordsView.text isEqualToString:@""] || self.wordsView.text == nil) {
             UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入文件对应单词" message:nil preferredStyle:UIAlertControllerStyleAlert];
             UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
                 
@@ -1540,8 +1561,10 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
-        
-        [self getUploadFileWithFileType:self.name];
+        else
+        {
+            [self getUploadFileWithFileType:self.name];
+        }
     }
     else if([self.name isEqualToString:@"audio"]) {
         if ([self.wordField.text isEqualToString:@""] || self.wordField.text == nil) {
@@ -1552,8 +1575,9 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
-        
-        [self getUploadFileWithFileType:self.name];
+        else{
+            [self getUploadFileWithFileType:self.name];
+        }
     }
     else if([self.name isEqualToString:@"video"]) {
         if ([self.videoCategoryField.text isEqualToString:@""] || self.videoCategoryField.text == nil) {
@@ -1564,7 +1588,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
-        if ([self.videoAlbumnameField.text isEqualToString:@""] || self.videoAlbumnameField.text == nil) {
+        else if ([self.videoAlbumnameField.text isEqualToString:@""] || self.videoAlbumnameField.text == nil) {
             UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入视频名称" message:nil preferredStyle:UIAlertControllerStyleAlert];
             UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
                 
@@ -1572,7 +1596,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
-        if ([self.videoQuarterField.text isEqualToString:@""] || self.videoQuarterField.text == nil) {
+        else if ([self.videoQuarterField.text isEqualToString:@""] || self.videoQuarterField.text == nil) {
             UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入视频是第几季" message:nil preferredStyle:UIAlertControllerStyleAlert];
             UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
                 
@@ -1580,7 +1604,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
-        if ([self.videoOrderField.text isEqualToString:@""] || self.videoOrderField.text == nil) {
+        else if ([self.videoOrderField.text isEqualToString:@""] || self.videoOrderField.text == nil) {
             UIAlertController * alertC = [UIAlertController alertControllerWithTitle:@"请输入视频第几集" message:nil preferredStyle:UIAlertControllerStyleAlert];
             UIAlertAction * alertA = [UIAlertAction actionWithTitle:@"确定" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
                 
@@ -1588,8 +1612,10 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             [alertC addAction:alertA];
             [self presentViewController:alertC animated:YES completion:nil];
         }
-        
-        [self videoThumbUpload];
+        else
+        {
+            [self videoThumbUpload];
+        } 
     }
     else if([self.name isEqualToString:@"other"]) {
         
@@ -1660,6 +1686,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     NSMutableDictionary * paramsDic = [NSMutableDictionary new];
     if ([self.name isEqualToString:@"image"]) {
         [paramsDic setObject:self.mainTypeField.text forKey:@"x:maintype"];
+        [paramsDic setObject:self.booknameField.text forKey:@"x:bookname"];
         [paramsDic setObject:self.wordsView.text forKey:@"x:words"];
         [paramsDic setObject:self.fileName forKey:@"fname"];
         [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
