@@ -91,8 +91,18 @@
 @end
 
 #pragma mark - ImagePreviewViewController interface
+
+@protocol ImagePreviewDelegate <NSObject>
+
+-(void)getSelectVideoScreenImage:(UIImage *)image;
+@end
+
 @interface ImagePreviewViewController : UIViewController
+@property (nonatomic, assign) id<ImagePreviewDelegate> delegate;
 - (instancetype)initWithFilePath:(NSString *)filePath;
+
+- (instancetype)initWithVideoFilePath:(NSString *)filePath;
+
 @end
 
 
@@ -205,6 +215,11 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     
     self.name = @"image";
     self.mimeType = @"image/jpeg";
+    
+    NSString * wordsString = @"x-ray#x-ray fish#fire extinguisher#exercise#exclaim#mixer#pixie#explorer#sixty";
+    NSArray * wordsarray = [wordsString componentsSeparatedByString:@"#"]; //根据#拆分字符串
+    NSLog(@"wordsarray:%@",wordsarray);
+
     
 }
 
@@ -984,7 +999,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 
 #pragma mark - UploadViewController
-@interface UploadViewController()<UITextFieldDelegate,UITextViewDelegate>
+@interface UploadViewController()<UITextFieldDelegate,UITextViewDelegate,ImagePreviewDelegate>
 @property(strong, nonatomic)UILabel * fileNameLbl;
 @property(strong, nonatomic)UILabel * mimeTypeLbl;
 
@@ -1134,6 +1149,12 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 }
 
 - (void)createUploadPicView{
+    
+    /**
+     * 输入教材的名称
+     */
+    NSString * bookName = @"phonics letter of the week";
+    
     self.mainTypeField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.deleteswitchLbl.frame)+20, WinSize.width - 20, 50)];
     [self.mainTypeField setTextColor:BaseColor];
     [self.mainTypeField setTextAlignment:NSTextAlignmentLeft];
@@ -1162,7 +1183,9 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.booknameField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     [self.view addSubview:self.booknameField];
     
-    [self.booknameField setText:@"phonics letter of the week"];
+    if (![bookName isEqualToString:@""] || bookName != nil) {
+        [self.booknameField setText:bookName];
+    }
     
     self.wordsView = [[UITextView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.booknameField.frame)+20, WinSize.width - 20, 150)];
     [self.wordsView setTextColor:BaseColor];
@@ -1316,19 +1339,27 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 //    videoQuarterField;//视频属于第几季
 //    videoOrderField
     
+    NSString * videoNameStr = @"小猪佩奇 第1季";
+    
+    
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
     self.videoCategoryField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.deleteswitchLbl.frame)+20, WinSize.width - 20, 50)];
     [self.videoCategoryField setTextColor:BaseColor];
     [self.videoCategoryField setTextAlignment:NSTextAlignmentLeft];
     [self.videoCategoryField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
     [self.videoCategoryField setBackgroundColor:[UIColor clearColor]];
     [self.videoCategoryField setDelegate:self];
-    [self.videoCategoryField setPlaceholder:@"输入视频总名称，如：《小猪佩奇》"];
+    [self.videoCategoryField setPlaceholder:@"输入视频总名称，如：小猪佩奇 第1季"];
     [self.videoCategoryField.layer setMasksToBounds:YES];
     [self.videoCategoryField.layer setBorderColor:BaseColor.CGColor];
     [self.videoCategoryField.layer setBorderWidth:1.0f];
     [self.videoCategoryField.layer setCornerRadius:10.0f];
     [self.videoCategoryField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     [self.view addSubview:self.videoCategoryField];
+    if (![videoNameStr isEqualToString:@""] || videoNameStr != nil) {
+        [self.videoCategoryField setText:videoNameStr];
+    }
     
     self.videoAlbumnameField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoCategoryField.frame)+20, WinSize.width - 20, 50)];
     [self.videoAlbumnameField setTextColor:BaseColor];
@@ -1336,13 +1367,18 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.videoAlbumnameField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
     [self.videoAlbumnameField setBackgroundColor:[UIColor clearColor]];
     [self.videoAlbumnameField setDelegate:self];
-    [self.videoAlbumnameField setPlaceholder:@"视频名称，如：《小猪佩奇之猪爸爸减肥》"];
+    [self.videoAlbumnameField setPlaceholder:@"视频名称，如：小猪佩奇之猪爸爸减肥"];
     [self.videoAlbumnameField.layer setMasksToBounds:YES];
     [self.videoAlbumnameField.layer setBorderColor:BaseColor.CGColor];
     [self.videoAlbumnameField.layer setBorderWidth:1.0f];
     [self.videoAlbumnameField.layer setCornerRadius:10.0f];
     [self.videoAlbumnameField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     [self.view addSubview:self.videoAlbumnameField];
+    
+    /**
+     * 获取默认文件名称
+     */
+    [self.videoAlbumnameField setText:[[filePath lastPathComponent] stringByDeletingPathExtension]];
     
     self.videoQuarterField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoAlbumnameField.frame)+20, WinSize.width - 20, 50)];
     [self.videoQuarterField setTextColor:BaseColor];
@@ -1375,15 +1411,40 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     self.video_thumb_image = [[UIImageView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoOrderField.frame)+20, WinSize.width-20, 220)];
     [self.video_thumb_image setContentMode:UIViewContentModeScaleAspectFill];
     [self.video_thumb_image setClipsToBounds:YES];
-    NSString *tmpDir = NSTemporaryDirectory();
-    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+
     UIImage * thumb_image = [self getScreenShotImageFromVideoPath:filePath];
     [self.video_thumb_image setImage:thumb_image];
     [self.view addSubview:self.video_thumb_image];
+
+    self.video_thumb_image.userInteractionEnabled = YES;
     
+    UITapGestureRecognizer *singleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleSingleTap:)];
+    [self.video_thumb_image addGestureRecognizer:singleTap];
+
     self.thumb_image_name = [NSString stringWithFormat:@"%@.jpeg",[[filePath lastPathComponent] stringByDeletingPathExtension]];
     NSLog(@"%@",self.thumb_image_name);
     [self saveImage:thumb_image imageName:self.thumb_image_name];
+    
+    
+}
+
+- (void)handleSingleTap:(UIGestureRecognizer *)gestureRecognizer{
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    ImagePreviewViewController * imagePVC = [[ImagePreviewViewController alloc] initWithVideoFilePath:filePath];
+    [imagePVC setDelegate:self];
+    [self presentViewController:imagePVC animated:YES completion:nil];
+}
+
+- (void)getSelectVideoScreenImage:(UIImage *)image
+{
+    [self.video_thumb_image setImage:image];
+    
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    self.thumb_image_name = [NSString stringWithFormat:@"%@.jpeg",[[filePath lastPathComponent] stringByDeletingPathExtension]];
+    NSLog(@"%@",self.thumb_image_name);
+    [self saveImage:self.video_thumb_image.image imageName:self.thumb_image_name];
 }
 
 
@@ -1420,7 +1481,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     
     gen.appliesPreferredTrackTransform = YES;
     
-    CMTime time = CMTimeMakeWithSeconds(0.0, 600);
+    CMTime time = CMTimeMakeWithSeconds(3.0, 600);
     
     NSError *error = nil;
     
@@ -1433,6 +1494,48 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     CGImageRelease(image);
 
     return shotImage;
+}
+
+#define k_THUMBNAIL_IMG_WIDTH  100//缩略图及cell大小
+#define k_FPS 1//一秒想取多少帧
+
+//这本来是个异步调用，但写成这种方便大家看和复制来直接测试
+- (UIImage*)getVideoThumbnailWithUrl:(NSURL*)videoUrl  second:(CGFloat)second
+{
+    if (!videoUrl)
+    {
+        NSLog(@"WARNING:videoUrl为空");
+        return nil;
+    }
+    AVURLAsset *urlSet = [AVURLAsset assetWithURL:videoUrl];
+    AVAssetImageGenerator *imageGenerator = [AVAssetImageGenerator assetImageGeneratorWithAsset:urlSet];
+    imageGenerator.appliesPreferredTrackTransform = YES;
+    imageGenerator.apertureMode = AVAssetImageGeneratorApertureModeEncodedPixels;
+    
+    /*
+     如果不需要获取缩略图，就设置为NO，如果需要获取缩略图，则maximumSize为获取的最大尺寸。
+     以BBC为例，getThumbnail = NO时，打印宽高数据为：1920*1072。
+     getThumbnail = YES时，maximumSize为100*100。打印宽高数据为：100*55.
+     注：不乘[UIScreen mainScreen].scale，会发现缩略图在100*100很虚。
+     */
+    BOOL getThumbnail = YES;
+    if (getThumbnail)
+    {
+        CGFloat width = [UIScreen mainScreen].scale * k_THUMBNAIL_IMG_WIDTH;
+        imageGenerator.maximumSize =  CGSizeMake(width, width);
+    }
+    NSError *error = nil;
+    CMTime time = CMTimeMake(second,k_FPS);
+    CMTime actucalTime;
+    CGImageRef cgImage = [imageGenerator copyCGImageAtTime:time actualTime:&actucalTime error:&error];
+    if (error) {
+        NSLog(@"ERROR:获取视频图片失败,%@",error.domain);
+    }
+    CMTimeShow(actucalTime);
+    UIImage *image = [UIImage imageWithCGImage:cgImage];
+    NSLog(@"imageWidth=%f,imageHeight=%f",image.size.width,image.size.height);
+    CGImageRelease(cgImage);
+    return image;
 }
 
 - (void)textFieldDidBeginEditing:(UITextField *)textField
@@ -1739,11 +1842,14 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
             if (self.deleteSwitch.isOn == YES) {
                 [self deleteFileWithPath:filePath];
             }
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.navigationController popViewControllerAnimated:YES];
+            });
         }
         else{
             NSLog(@"失败");
             [self dismissProgress];
-            [self showProgressStatusSuccess:@"上传失败" completion:nil];
+            [self showProgressStatusFail:@"上传失败"];
             //如果失败，这里可以把info信息上报自己的服务器，便于后面分析上传错误原因
         }
         NSLog(@"info ===== %@", info);
@@ -1949,7 +2055,12 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @interface ImagePreviewViewController()<UIViewControllerTransitioningDelegate>
 @property (nonatomic, strong)UIView * bgView;
 @property (nonatomic, strong)NSString * imagePath;
+@property (nonatomic, strong)NSString * videoPath;
 @property (nonatomic, strong)UIImageView * previewimageView;
+@property (nonatomic, assign)BOOL isVideo;
+
+@property (nonatomic, strong)UISlider * videoSlider;
+@property (nonatomic, strong)UIButton * saveButton;
 
 @end
 
@@ -1969,6 +2080,17 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     if (self = [super init]) {
         [self configureController];
         self.imagePath = filePath;
+        self.isVideo = NO;
+    }
+    return self;
+}
+
+- (instancetype)initWithVideoFilePath:(NSString *)filePath
+{
+    if (self = [super init]) {
+        [self configureController];
+        self.videoPath = filePath;
+        self.isVideo = YES;
     }
     return self;
 }
@@ -1986,6 +2108,15 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.bgView setAlpha:0.5f];
     [self.view addSubview:self.bgView];
     
+    if (self.isVideo == NO) {
+        [self imageCreateView];
+    }
+    else{
+        [self videoCreateView];
+    }
+}
+
+- (void)imageCreateView{
     NSData * imageData = [NSData dataWithContentsOfFile:self.imagePath];
     self.previewimageView = [[UIImageView alloc] initWithImage:[UIImage imageWithData:imageData]];
     [self.previewimageView setFrame:CGRectMake(0, 0, 300, 425)];
@@ -1997,6 +2128,103 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [backControl addTarget:self action:@selector(backPress) forControlEvents:UIControlEventTouchUpInside];
     [backControl setBackgroundColor:[UIColor clearColor]];
     [self.view addSubview:backControl];
+}
+
+- (void)videoCreateView{
+    
+    UIControl * backControl = [[UIControl alloc] initWithFrame:CGRectMake(0, 0, WinSize.width, WinSize.height)];
+    [backControl addTarget:self action:@selector(backPress) forControlEvents:UIControlEventTouchUpInside];
+    [backControl setBackgroundColor:[UIColor clearColor]];
+    [self.view addSubview:backControl];
+    
+    self.videoSlider = [[UISlider alloc] initWithFrame:CGRectMake(10, TopBar_Height, WinSize.width - 20, 20)];
+    [self.videoSlider setMinimumValue:0];
+    [self.videoSlider addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged];
+    
+    // 定义UISlider的样式
+    self.videoSlider.minimumTrackTintColor = [UIColor redColor];
+    self.videoSlider.maximumTrackTintColor = [UIColor greenColor];
+    self.videoSlider.thumbTintColor = [UIColor blueColor];
+    [backControl addSubview:self.videoSlider];
+    
+    float maxValue = [[[self getVideoInfoWithSourcePath:self.videoPath] objectForKey:@"duration"] floatValue];
+    [self.videoSlider setMaximumValue:maxValue];
+    
+    UIImage * preImage = [self getScreenShotImageFromVideoPath:self.videoPath seconds:0];
+    self.previewimageView = [[UIImageView alloc] initWithImage:preImage];
+    [self.previewimageView setFrame:CGRectMake(0, 0, WinSize.width-20, 220)];
+    [self.previewimageView setCenter:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.videoSlider.frame)+20 + 110)];
+    [self.previewimageView setBackgroundColor:[UIColor clearColor]];
+    [self.view addSubview:self.previewimageView];
+    
+    self.saveButton = [UIButton setButtonWithFrame:CGRectMake(0, 0, WinSize.width - 20, 50)
+                                                   center:CGPointMake(WinSize.width/2, CGRectGetMaxY(self.previewimageView.frame)+50)
+                                          backGroundColor:[UIColor whiteColor]
+                                                    title:@"保存图片"
+                                                     font:[UIFont fontWithName:@"Arial" size:20.0f]
+                                               titleColor:BaseColor];
+    [self.saveButton addTarget:self action:@selector(saveImage:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:self.saveButton];
+    
+}
+
+- (void)saveImage:(id)sender{
+    if (self.delegate) {
+        [self.delegate getSelectVideoScreenImage:self.previewimageView.image];
+    }
+    [self backPress];
+}
+
+- (void)sliderValueChanged:(id)sender {
+    if ([sender isKindOfClass:[UISlider class]]) {
+        UISlider * slider = (UISlider *)sender;
+        UIImage * preImage = [self getScreenShotImageFromVideoPath:self.videoPath seconds:slider.value];
+        [self.previewimageView setImage:preImage];
+    }
+}
+
+- (NSDictionary *)getVideoInfoWithSourcePath:(NSString *)path{
+    AVURLAsset * asset = [AVURLAsset assetWithURL:[NSURL fileURLWithPath:path]];
+    CMTime   time = [asset duration];
+    int seconds = ceil(time.value/time.timescale);
+    NSInteger   fileSize = [[NSFileManager defaultManager] attributesOfItemAtPath:path error:nil].fileSize;
+    return @{@"size" : @(fileSize),
+             @"duration" : @(seconds)};
+}
+
+
+/**
+ *  获取视频的缩略图方法
+ *
+ *  @param filePath 视频的本地路径
+ *
+ *  @return 视频截图
+ */
+- (UIImage *)getScreenShotImageFromVideoPath:(NSString *)filePath seconds:(float)seconds{
+    
+    UIImage *shotImage;
+    //视频路径URL
+    NSURL *fileURL = [NSURL fileURLWithPath:filePath];
+    
+    AVURLAsset *asset = [[AVURLAsset alloc] initWithURL:fileURL options:nil];
+    
+    AVAssetImageGenerator *gen = [[AVAssetImageGenerator alloc] initWithAsset:asset];
+    
+    gen.appliesPreferredTrackTransform = YES;
+    
+    CMTime time = CMTimeMakeWithSeconds(seconds, 600);
+    
+    NSError *error = nil;
+    
+    CMTime actualTime;
+    
+    CGImageRef image = [gen copyCGImageAtTime:time actualTime:&actualTime error:&error];
+    
+    shotImage = [[UIImage alloc] initWithCGImage:image];
+    
+    CGImageRelease(image);
+    
+    return shotImage;
 }
 
 - (void)backPress{
