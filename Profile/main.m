@@ -1334,10 +1334,10 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 }
 
 - (void)createUploadVideoView{
-//    videoCategoryField;//视频类型名称，如《小猪佩奇》
-//    videoAlbumnameField;//视频名称,如《小猪佩奇之猪爸爸减肥》
+//    videoCategoryField;//视频类型名称，如 小猪佩奇 第一季
+//    videoAlbumnameField;//视频名称,如 小猪佩奇之猪爸爸减肥
 //    videoQuarterField;//视频属于第几季
-//    videoOrderField
+//    videoOrderField;//视频是第几集
     
     NSString * videoNameStr = @"小猪佩奇 第1季";
     
