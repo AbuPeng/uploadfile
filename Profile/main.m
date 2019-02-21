@@ -21,7 +21,7 @@
 #define BaseColor [UIColor colorWithRed:243.0f/255.0f green:110.0f/255.0f blue:31.0f/255.0f alpha:1.0f]
 
 //#define UrlString @"http://localhost/api"
-#define UrlString @"http://media.powersenz.com/greattalk/public/api"
+#define UrlString @"http://www.greatclass.cn/greatclass/public/api"
 
 #define StatusBar_Height [[UIApplication sharedApplication] statusBarFrame].size.height
 
@@ -128,7 +128,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property(strong ,nonatomic)NSString * mimeType;
 
 @property(strong ,nonatomic)NSString * bucket;
-
+@property(strong ,nonatomic)NSString * sort;
 @end
 
 
@@ -999,7 +999,9 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 
 #pragma mark - UploadViewController
-@interface UploadViewController()<UITextFieldDelegate,UITextViewDelegate,ImagePreviewDelegate>
+@interface UploadViewController()<UITextFieldDelegate,UITextViewDelegate,ImagePreviewDelegate,UIPickerViewDelegate,UIPickerViewDataSource>
+
+@property(strong, nonatomic)UIScrollView * bgScrollView;
 @property(strong, nonatomic)UILabel * fileNameLbl;
 @property(strong, nonatomic)UILabel * mimeTypeLbl;
 
@@ -1018,12 +1020,16 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 @property(strong, nonatomic)UITextField * wordField;
 
 //上传视频
+@property(strong, nonatomic)NSArray * videoSortArray;
+@property(strong, nonatomic)UIPickerView * videoSortPicker;//视频种类
 @property(strong, nonatomic)UITextField * videoCategoryField;//视频类型名称，如《小猪佩奇》
 @property(strong, nonatomic)UITextField * videoAlbumnameField;//视频名称,如《小猪佩奇之猪爸爸减肥》
 @property(strong, nonatomic)UITextField * videoQuarterField;//视频属于第几季
 @property(strong, nonatomic)UITextField * videoOrderField;//视频属于第几集
 @property(strong, nonatomic)UIImageView * video_thumb_image;//视频的缩略图
 @property(strong, nonatomic)NSString * thumb_image_name;//缩略图名称
+
+@property(assign, nonatomic)BOOL is_eu_file;
 
 @end
 
@@ -1070,6 +1076,8 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     
     [self.view setBackgroundColor:[UIColor whiteColor]];
     
+    self.is_eu_file = YES;
+    
     [self initNavigation];
     [self createView];
 }
@@ -1083,13 +1091,23 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
 - (void)createView{
     
-    self.fileNameLbl = [[UILabel alloc] initWithFrame:CGRectMake(10, TopBar_Height + 10, WinSize.width - 20, 50)];
+    self.bgScrollView = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, WinSize.width, WinSize.height)];
+    [self.bgScrollView setContentSize:CGSizeMake(WinSize.width, WinSize.height+200)];
+    [self.bgScrollView setBackgroundColor:[UIColor clearColor]];
+    [self.view addSubview:_bgScrollView];
+    
+    UIControl * backCon = [[UIControl alloc] initWithFrame:CGRectMake(0, 0, WinSize.width, WinSize.height + 200)];
+    [backCon addTarget:self action:@selector(hidderkeyboard) forControlEvents:UIControlEventTouchUpInside];
+    [backCon setBackgroundColor:[UIColor clearColor]];
+    [self.bgScrollView addSubview:backCon];
+    
+    self.fileNameLbl = [[UILabel alloc] initWithFrame:CGRectMake(10, 10, WinSize.width - 20, 50)];
     [self.fileNameLbl setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
     [self.fileNameLbl setTextColor:BaseColor];
     [self.fileNameLbl setTextAlignment:NSTextAlignmentCenter];
     [self.fileNameLbl setNumberOfLines:0];
     [self.fileNameLbl setBackgroundColor:[UIColor clearColor]];
-    [self.view addSubview:self.fileNameLbl];
+    [self.bgScrollView addSubview:self.fileNameLbl];
     [self.fileNameLbl.layer setMasksToBounds:YES];
     [self.fileNameLbl.layer setBorderColor:BaseColor.CGColor];
     [self.fileNameLbl.layer setBorderWidth:1.0f];
@@ -1102,7 +1120,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.mimeTypeLbl setTextAlignment:NSTextAlignmentCenter];
     [self.mimeTypeLbl setNumberOfLines:0];
     [self.mimeTypeLbl setBackgroundColor:[UIColor clearColor]];
-    [self.view addSubview:self.mimeTypeLbl];
+    [self.bgScrollView addSubview:self.mimeTypeLbl];
     [self.mimeTypeLbl.layer setMasksToBounds:YES];
     [self.mimeTypeLbl.layer setBorderColor:BaseColor.CGColor];
     [self.mimeTypeLbl.layer setBorderWidth:1.0f];
@@ -1113,21 +1131,28 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.deleteSwitch setOn:YES];
     [self.deleteSwitch setOnTintColor:BaseColor];
     [self.deleteSwitch addTarget:self action:@selector(deleteSwitchPress:) forControlEvents:UIControlEventValueChanged];
-    [self.view addSubview:self.deleteSwitch];
+    [self.bgScrollView addSubview:self.deleteSwitch];
     
     self.deleteswitchLbl = [[UILabel alloc] initWithFrame:CGRectMake(CGRectGetMaxX(self.deleteSwitch.frame)+20, 0, WinSize.width -CGRectGetMaxX(self.clickSwitch.frame) - 30 , 50)];
     [self.deleteswitchLbl setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
     [self.deleteswitchLbl setTextColor:BaseColor];
     [self.deleteswitchLbl setTextAlignment:NSTextAlignmentLeft];
     [self.deleteswitchLbl setText:@"上传成功后删除文件"];
-    [self.view addSubview:self.deleteswitchLbl];
+    [self.bgScrollView addSubview:self.deleteswitchLbl];
     [self.deleteswitchLbl setCenter:CGPointMake(CGRectGetMidX(self.deleteswitchLbl.frame), CGRectGetMidY(self.deleteSwitch.frame))];
     
     if ([self.name isEqualToString:@"image"]) {
         [self createUploadPicView];
     }
     else if([self.name isEqualToString:@"audio"]) {
-        [self createUploadAudioView];
+        if (self.is_eu_file == YES) {
+            [self createUploadEUAudioView];
+        }
+        else
+        {
+            [self createUploadAudioView];
+        }
+        
     }
     else if([self.name isEqualToString:@"video"]) {
         self.bucket = @"greattalkvideo";
@@ -1136,6 +1161,18 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     else if([self.name isEqualToString:@"other"]) {
 
     }
+}
+
+- (void)hidderkeyboard
+{
+    [self.wordsView resignFirstResponder];
+    [self.wordField resignFirstResponder];
+    [self.mainTypeField resignFirstResponder];
+    
+    [self.videoCategoryField resignFirstResponder];
+    [self.videoAlbumnameField resignFirstResponder];
+    [self.videoOrderField resignFirstResponder];
+    [self.videoQuarterField resignFirstResponder];
 }
 
 - (void)deleteSwitchPress:(id)sender{
@@ -1153,7 +1190,26 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     /**
      * 输入教材的名称
      */
-    NSString * bookName = @"phonics letter of the week";
+    NSString * bookName = @"everybody up";
+    
+    /**
+     * everybody up
+     * 纯单词 归属类型为 前缀_word_单元
+     * 纯图像 归属类型为 前缀_pic_单元
+     */
+    NSString * mainType = @"eu_pic_04";
+    
+    /**
+     * everybody up
+     * 根据文件名获取单词
+     *
+     */
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    NSString * filename = [[filePath lastPathComponent] stringByDeletingPathExtension];
+    
+    NSString * word = [filename substringFromIndex:9];//截取掉下标3之后的字符串
+    NSLog(@"filename -- %@, word -- %@",filename,word);
     
     self.mainTypeField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.deleteswitchLbl.frame)+20, WinSize.width - 20, 50)];
     [self.mainTypeField setTextColor:BaseColor];
@@ -1167,7 +1223,11 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.mainTypeField.layer setBorderWidth:1.0f];
     [self.mainTypeField.layer setCornerRadius:10.0f];
     [self.mainTypeField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-    [self.view addSubview:self.mainTypeField];
+    [self.bgScrollView addSubview:self.mainTypeField];
+    
+    if (![mainType isEqualToString:@""] || bookName != nil) {
+        [self.mainTypeField setText:mainType];
+    }
     
     self.booknameField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mainTypeField.frame)+20, WinSize.width - 20, 50)];
     [self.booknameField setTextColor:BaseColor];
@@ -1181,7 +1241,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.booknameField.layer setBorderWidth:1.0f];
     [self.booknameField.layer setCornerRadius:10.0f];
     [self.booknameField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-    [self.view addSubview:self.booknameField];
+    [self.bgScrollView addSubview:self.booknameField];
     
     if (![bookName isEqualToString:@""] || bookName != nil) {
         [self.booknameField setText:bookName];
@@ -1193,25 +1253,29 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.wordsView setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
     [self.wordsView setTextAlignment:NSTextAlignmentLeft];
     [self.wordsView setBackgroundColor:[UIColor clearColor]];
-    [self.view addSubview:self.wordsView];
+    [self.bgScrollView addSubview:self.wordsView];
     [self.wordsView.layer setMasksToBounds:YES];
     [self.wordsView.layer setBorderColor:BaseColor.CGColor];
     [self.wordsView.layer setBorderWidth:1.0f];
     [self.wordsView.layer setCornerRadius:10.0f];
     [self.wordsView setAutocapitalizationType:UITextAutocapitalizationTypeNone];
     
+    if (![word isEqualToString:@""] || word != nil) {
+        [self.wordsView setText:word];
+    }
+    
     self.clickSwitch = [[UISwitch alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.wordsView.frame)+20, 120, 50)];
     [self.clickSwitch setOn:NO];
     [self.clickSwitch setOnTintColor:BaseColor];
     [self.clickSwitch addTarget:self action:@selector(canClickPress:) forControlEvents:UIControlEventValueChanged];
-    [self.view addSubview:self.clickSwitch];
+    [self.bgScrollView addSubview:self.clickSwitch];
     
     self.switchLbl = [[UILabel alloc] initWithFrame:CGRectMake(CGRectGetMaxX(self.clickSwitch.frame)+20, 0, WinSize.width -CGRectGetMaxX(self.clickSwitch.frame) - 30 , 50)];
     [self.switchLbl setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
     [self.switchLbl setTextColor:BaseColor];
     [self.switchLbl setTextAlignment:NSTextAlignmentLeft];
     [self.switchLbl setText:@"图片不可点击"];
-    [self.view addSubview:self.switchLbl];
+    [self.bgScrollView addSubview:self.switchLbl];
     [self.switchLbl setCenter:CGPointMake(CGRectGetMidX(self.switchLbl.frame), CGRectGetMidY(self.clickSwitch.frame))];
     
     UIView * cancelView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, WinSize.width, 45)];
@@ -1239,7 +1303,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
                                                       font:[UIFont fontWithName:@"Arial" size:20.0f]
                                                 titleColor:BaseColor];
     [previewImageButton addTarget:self action:@selector(previewImageButtonPress:) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:previewImageButton];
+    [self.bgScrollView addSubview:previewImageButton];
 }
 
 - (void)previewImageButtonPress:(id)sender{
@@ -1319,11 +1383,91 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.wordField.layer setBorderColor:BaseColor.CGColor];
     [self.wordField.layer setBorderWidth:1.0f];
     [self.wordField.layer setCornerRadius:10.0f];
-    [self.view addSubview:self.wordField];
+    [self.bgScrollView addSubview:self.wordField];
     
     NSString *tmpDir = NSTemporaryDirectory();
     NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
     [self.wordField setText:[[filePath lastPathComponent] stringByDeletingPathExtension]];
+}
+
+- (void)createUploadEUAudioView{
+    /**
+     * 输入教材的名称
+     */
+    NSString * bookName = @"everybody up";
+    
+    /**
+     * everybody up
+     * 纯单词 归属类型为 前缀_word_单元
+     * 纯图像 归属类型为 前缀_word_pic_单元
+     */
+    NSString * mainType = @"eu_audio_04";
+    
+    /**
+     * everybody up
+     * 根据文件名获取单词
+     *
+     */
+    NSString *tmpDir = NSTemporaryDirectory();
+    NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
+    NSString * filename = [[filePath lastPathComponent] stringByDeletingPathExtension];
+    
+    NSString * word = [filename substringFromIndex:10];//截取掉下标3之后的字符串
+    NSLog(@"filename -- %@, word -- %@",filename,word);
+    
+    self.mainTypeField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.deleteswitchLbl.frame)+20, WinSize.width - 20, 50)];
+    [self.mainTypeField setTextColor:BaseColor];
+    [self.mainTypeField setTextAlignment:NSTextAlignmentLeft];
+    [self.mainTypeField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.mainTypeField setBackgroundColor:[UIColor clearColor]];
+    [self.mainTypeField setDelegate:self];
+    [self.mainTypeField setPlaceholder:@"输入文件归属类型"];
+    [self.mainTypeField.layer setMasksToBounds:YES];
+    [self.mainTypeField.layer setBorderColor:BaseColor.CGColor];
+    [self.mainTypeField.layer setBorderWidth:1.0f];
+    [self.mainTypeField.layer setCornerRadius:10.0f];
+    [self.mainTypeField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [self.bgScrollView addSubview:self.mainTypeField];
+    
+    if (![mainType isEqualToString:@""] || bookName != nil) {
+        [self.mainTypeField setText:mainType];
+    }
+    
+    self.booknameField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.mainTypeField.frame)+20, WinSize.width - 20, 50)];
+    [self.booknameField setTextColor:BaseColor];
+    [self.booknameField setTextAlignment:NSTextAlignmentLeft];
+    [self.booknameField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.booknameField setBackgroundColor:[UIColor clearColor]];
+    [self.booknameField setDelegate:self];
+    [self.booknameField setPlaceholder:@"输入教材名称"];
+    [self.booknameField.layer setMasksToBounds:YES];
+    [self.booknameField.layer setBorderColor:BaseColor.CGColor];
+    [self.booknameField.layer setBorderWidth:1.0f];
+    [self.booknameField.layer setCornerRadius:10.0f];
+    [self.booknameField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [self.bgScrollView addSubview:self.booknameField];
+    
+    if (![bookName isEqualToString:@""] || bookName != nil) {
+        [self.booknameField setText:bookName];
+    }
+    
+    self.wordField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.booknameField.frame)+20, WinSize.width - 20, 50)];
+    [self.wordField setTextColor:BaseColor];
+    [self.wordField setTextAlignment:NSTextAlignmentLeft];
+    [self.wordField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
+    [self.wordField setBackgroundColor:[UIColor clearColor]];
+    [self.wordField setDelegate:self];
+    [self.wordField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+    [self.wordField setPlaceholder:@"输入文件对应单词"];
+    [self.wordField.layer setMasksToBounds:YES];
+    [self.wordField.layer setBorderColor:BaseColor.CGColor];
+    [self.wordField.layer setBorderWidth:1.0f];
+    [self.wordField.layer setCornerRadius:10.0f];
+    [self.bgScrollView addSubview:self.wordField];
+    
+    if (![word isEqualToString:@""] || word != nil) {
+        [self.wordField setText:word];
+    }
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField{
@@ -1339,12 +1483,43 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 //    videoQuarterField;//视频属于第几季
 //    videoOrderField;//视频是第几集
     
-    NSString * videoNameStr = @"小猪佩奇 第1季";
+    NSString * videoNameStr = @"KidsTV"; //视频总称
+    NSString * videoQuarterStr = @"1";   //视频属于第几季 如果只有一季，就传入1
+    
+    /**
+     * 通过解析文件名获取当前第几集
+     * 比如 S201 Bubbles.mp4  截取S201中，S2为第二季，01为第几集，S250 Stars.mp4 S2为第二季，50为第50集
+     * XL101 我的爷爷奶奶  其中 XL为学龄前英语课的“学龄”首字母 XL后面的1表示第一季，XL1后面的01表示这是第一集
+     */
+    NSString *str1 = [self.fileName substringToIndex:6];//截取掉下标5之前的字符串
+    NSString *str2 = [str1 substringFromIndex:4];//截取掉下标3之后的字符串
+    NSString * videoOrderStr = [NSString stringWithFormat:@"%ld",(long)[str2 integerValue]];
     
     
     NSString *tmpDir = NSTemporaryDirectory();
     NSString *filePath = [tmpDir stringByAppendingPathComponent:self.fileName];
-    self.videoCategoryField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.deleteswitchLbl.frame)+20, WinSize.width - 20, 50)];
+    
+    /**
+     * 通过解析文件名获取视频名称
+     * 比如 XL101 我的爷爷奶奶.mp4 去掉后缀 截取XL101 我的爷爷奶奶中的，“01 我的爷爷奶奶”部分为视频名称
+     */
+    NSString * videoAlbumNameStr = [[[filePath lastPathComponent] stringByDeletingPathExtension] substringFromIndex:4];
+    
+    self.videoSortArray = @[@{@"name":@"英语",@"value":@"0"},@{@"name":@"艺术",@"value":@"1"}];
+    self.sort = [[self.videoSortArray objectAtIndex:0] objectForKey:@"value"];
+    //创建文件类型选择器
+    self.videoSortPicker = [[UIPickerView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.deleteswitchLbl.frame)+20, WinSize.width-20, 162)];
+    [self.videoSortPicker setDelegate:self];
+    [self.videoSortPicker setDataSource:self];
+    [self.videoSortPicker setBackgroundColor:[UIColor whiteColor]];
+    [self.bgScrollView addSubview:self.videoSortPicker];
+    [self.videoSortPicker reloadAllComponents];//刷新UIPickerView
+    [self.videoSortPicker.layer setMasksToBounds:YES];
+    [self.videoSortPicker.layer setBorderWidth:1.0f];
+    [self.videoSortPicker.layer setBorderColor:BaseColor.CGColor];
+    [self.videoSortPicker.layer setCornerRadius:10.0f];
+    
+    self.videoCategoryField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoSortPicker.frame)+20, WinSize.width - 20, 50)];
     [self.videoCategoryField setTextColor:BaseColor];
     [self.videoCategoryField setTextAlignment:NSTextAlignmentLeft];
     [self.videoCategoryField setFont:[UIFont fontWithName:@"Arial" size:18.0f]];
@@ -1356,7 +1531,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.videoCategoryField.layer setBorderWidth:1.0f];
     [self.videoCategoryField.layer setCornerRadius:10.0f];
     [self.videoCategoryField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-    [self.view addSubview:self.videoCategoryField];
+    [self.bgScrollView addSubview:self.videoCategoryField];
     if (![videoNameStr isEqualToString:@""] || videoNameStr != nil) {
         [self.videoCategoryField setText:videoNameStr];
     }
@@ -1373,12 +1548,19 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.videoAlbumnameField.layer setBorderWidth:1.0f];
     [self.videoAlbumnameField.layer setCornerRadius:10.0f];
     [self.videoAlbumnameField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-    [self.view addSubview:self.videoAlbumnameField];
+    [self.bgScrollView addSubview:self.videoAlbumnameField];
     
     /**
      * 获取默认文件名称
      */
-    [self.videoAlbumnameField setText:[[filePath lastPathComponent] stringByDeletingPathExtension]];
+    if (![videoAlbumNameStr isEqualToString:@""] || videoAlbumNameStr != nil) {
+        [self.videoAlbumnameField setText:videoAlbumNameStr];
+    }
+    else
+    {
+        [self.videoAlbumnameField setText:[[filePath lastPathComponent] stringByDeletingPathExtension]];
+    }
+    
     
     self.videoQuarterField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoAlbumnameField.frame)+20, WinSize.width - 20, 50)];
     [self.videoQuarterField setTextColor:BaseColor];
@@ -1392,7 +1574,10 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.videoQuarterField.layer setBorderWidth:1.0f];
     [self.videoQuarterField.layer setCornerRadius:10.0f];
     [self.videoQuarterField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-    [self.view addSubview:self.videoQuarterField];
+    [self.bgScrollView addSubview:self.videoQuarterField];
+    if (![videoQuarterStr isEqualToString:@""] || videoQuarterStr != nil) {
+        [self.videoQuarterField setText:videoQuarterStr];
+    }
     
     self.videoOrderField = [[UITextField alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoQuarterField.frame)+20, WinSize.width - 20, 50)];
     [self.videoOrderField setTextColor:BaseColor];
@@ -1406,7 +1591,11 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     [self.videoOrderField.layer setBorderWidth:1.0f];
     [self.videoOrderField.layer setCornerRadius:10.0f];
     [self.videoOrderField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-    [self.view addSubview:self.videoOrderField];
+    [self.bgScrollView addSubview:self.videoOrderField];
+    
+    if (![videoOrderStr isEqualToString:@""] || videoOrderStr != nil) {
+        [self.videoOrderField setText:videoOrderStr];
+    }
     
     self.video_thumb_image = [[UIImageView alloc] initWithFrame:CGRectMake(10, CGRectGetMaxY(self.videoOrderField.frame)+20, WinSize.width-20, 220)];
     [self.video_thumb_image setContentMode:UIViewContentModeScaleAspectFill];
@@ -1414,7 +1603,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
 
     UIImage * thumb_image = [self getScreenShotImageFromVideoPath:filePath];
     [self.video_thumb_image setImage:thumb_image];
-    [self.view addSubview:self.video_thumb_image];
+    [self.bgScrollView addSubview:self.video_thumb_image];
 
     self.video_thumb_image.userInteractionEnabled = YES;
     
@@ -1427,6 +1616,59 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     
     
 }
+
+
+#pragma mark - pickerViewDatasource
+
+- (NSInteger)numberOfComponentsInPickerView:(UIPickerView *)pickerView
+{
+    return 1;
+}
+
+- (NSInteger)pickerView:(UIPickerView *)pickerView numberOfRowsInComponent:(NSInteger)component
+{
+    return [self.videoSortArray count];
+}
+
+#pragma mark - pickerViewDelegate
+
+- (CGFloat)pickerView:(UIPickerView *)pickerView rowHeightForComponent:(NSInteger)component
+{
+    return 40.0f;
+}
+
+// 自定义指定列的每行的视图，即指定列的每行的视图行为一致
+
+- (UIView *)pickerView:(UIPickerView *)pickerView viewForRow:(NSInteger)row forComponent:(NSInteger)component reusingView:(UIView *)view{
+    if (!view){
+        view = [[UIView alloc] initWithFrame:CGRectMake(0, 0, WinSize.width - 20, 40)];
+    }
+    UILabel * pickerLbl = [[UILabel alloc]initWithFrame:CGRectMake(0, 0, WinSize.width - 40, 40)];
+    [pickerLbl setCenter:CGPointMake(CGRectGetMidX(view.frame), CGRectGetMidY(view.frame))];
+    [pickerLbl setTextAlignment:NSTextAlignmentCenter];
+    [pickerLbl setText:[[self.videoSortArray objectAtIndex:row] objectForKey:@"name"]];
+    [pickerLbl setFont:[UIFont fontWithName:@"Arial" size:25.0f]];
+    [pickerLbl setTextColor:BaseColor];
+    [view addSubview:pickerLbl];
+    
+    //隐藏上下直线
+    [self.videoSortPicker.subviews objectAtIndex:1].backgroundColor = BaseColor;//[UIColor clearColor];
+    [self.videoSortPicker.subviews objectAtIndex:2].backgroundColor = BaseColor;//[UIColor clearColor];
+    return view;
+    
+}
+
+//显示的标题
+- (NSString *)pickerView:(UIPickerView *)pickerView titleForRow:(NSInteger)row forComponent:(NSInteger)component{
+    NSString * titleString = [[self.videoSortArray objectAtIndex:row] objectForKey:@"name"];
+    return titleString;
+}
+
+//被选择的行
+-(void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component{
+    self.sort = [[self.videoSortArray objectAtIndex:row] objectForKey:@"value"];
+}
+
 
 - (void)handleSingleTap:(UIGestureRecognizer *)gestureRecognizer{
     NSString *tmpDir = NSTemporaryDirectory();
@@ -1453,6 +1695,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     NSString *filePath = [tmpDir stringByAppendingPathComponent:
                           [NSString stringWithFormat:@"%@", imageName]];  // 保存文件的名称
     BOOL result =[UIImageJPEGRepresentation(image, 1.0f) writeToFile:filePath atomically:YES]; // 保存成功会返回YES
+//    BOOL result =[UIImagePNGRepresentation(image) writeToFile:filePath atomically:YES]; // 保存成功会返回YES
     if (result == YES) {
         NSLog(@"保存成功");
     }
@@ -1481,7 +1724,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     
     gen.appliesPreferredTrackTransform = YES;
     
-    CMTime time = CMTimeMakeWithSeconds(3.0, 600);
+    CMTime time = CMTimeMakeWithSeconds(1, 1);
     
     NSError *error = nil;
     
@@ -1731,6 +1974,9 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     PPFileNetWorking * netWork = [[PPFileNetWorking alloc] init];
     NSMutableDictionary * dic = [[NSMutableDictionary alloc] init];
     [dic setObject:filetype forKey:@"file_type"];
+    if (self.is_eu_file == YES) {
+        [dic setObject:@"1" forKey:@"eu_audio"];
+    }
     [netWork PPFWnetworkPOSTWithUrl:UrlString controller:@"profile" action:@"getuptoken" parameters:dic success:^(id responseObject) {
         if ([[responseObject objectForKey:@"is_success"] intValue] == 1) {
             NSDictionary * resultData = [responseObject objectForKey:@"data"];
@@ -1803,10 +2049,21 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         }
     }
     else if([self.name isEqualToString:@"audio"]) {
-        [paramsDic setObject:self.wordField.text forKey:@"x:word"];
-        [paramsDic setObject:self.fileName forKey:@"fname"];
-        [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
-        [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+        if (self.is_eu_file == YES) {
+            [paramsDic setObject:self.mainTypeField.text forKey:@"x:maintype"];
+            [paramsDic setObject:self.booknameField.text forKey:@"x:bookname"];
+            [paramsDic setObject:self.wordField.text forKey:@"x:word"];
+            [paramsDic setObject:self.fileName forKey:@"fname"];
+            [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
+            [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+        }
+        else
+        {
+            [paramsDic setObject:self.wordField.text forKey:@"x:word"];
+            [paramsDic setObject:self.fileName forKey:@"fname"];
+            [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
+            [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
+        }
     }
     else if([self.name isEqualToString:@"video"]) {
         [paramsDic setObject:self.fileName forKey:@"fname"];
@@ -1816,6 +2073,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
         [paramsDic setObject:self.videoQuarterField.text forKey:@"x:quarter"];
         [paramsDic setObject:self.videoOrderField.text forKey:@"x:order"];
         [paramsDic setObject:self.bucket forKey:@"x:filebucket"];
+        [paramsDic setObject:self.sort forKey:@"x:sort"];
         [paramsDic setObject:self.mimeType forKey:@"x:mimeType"];
         [paramsDic setObject:[NSString stringWithFormat:@"%@",[[self getVideoInfoWithSourcePath:filePath] objectForKey:@"duration"]] forKey:@"x:length"];
 
@@ -1945,7 +2203,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
                 [self changeProgress:percent];
             } params:paramsDic checkCrc:YES cancellationSignal:nil];
             
-            [upManager putFile:filePath key:key token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
+            [upManager putFile:filePath key:[NSString stringWithFormat:@"%@",key] token:token complete:^(QNResponseInfo *info, NSString *key, NSDictionary *resp) {
                 if(info.ok)
                 {
                     NSLog(@"请求成功");
@@ -2212,7 +2470,7 @@ typedef void (^TmpListFilePressHandler)(NSString * fileString);
     
     gen.appliesPreferredTrackTransform = YES;
     
-    CMTime time = CMTimeMakeWithSeconds(seconds, 600);
+    CMTime time = CMTimeMakeWithSeconds(seconds, 1);
     
     NSError *error = nil;
     
